@@ -46,6 +46,7 @@ The themes below frame every scope decision.
 - [x] AI edit diffs
 - [x] Vim mode
 - [x] Prebuilt themes
+- [x] Language Server Protocol (LSP): diagnostics, hover, go-to-definition, completion, and format, via bundled server presets (TS, Rust, Python, Go, C/C++, and more)
 
 ### File Explorer
 
@@ -132,7 +133,7 @@ See `good-first-issue` and `help-wanted` labels on GitHub Issues for concrete ta
 
 Categories that will not be built into Oz. Individual feature requests in these categories will be closed.
 
-- **Heavy IDE features.** Full language-server integration, integrated debuggers, refactoring engines, project-wide search at IDE scale. Use a real editor for those.
+- **Heavy IDE features.** Integrated debuggers, refactoring engines, project-wide search at IDE scale. Use a real editor for those. (LSP — diagnostics/hover/definition/completion/format — is now supported; deeper IDE surfaces remain out of scope.)
 - **Notebook and document workspaces.** Anything that turns Oz into a document host rather than a terminal.
 - **Package manager and toolchain UIs.** Use `npm`, `pip`, `cargo` and friends in the terminal directly.
 - **Full web browser features.** Preview pane stays scoped to local dev servers and lightweight doc viewing. No navigation history, no bookmarks, no dev tools.

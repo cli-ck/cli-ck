@@ -109,7 +109,21 @@ export const EDITOR_THEME_LABELS: Record<EditorThemeId, string> = {
   "xcode-light": "Xcode Light",
 };
 
+export type LspActivation = "enabled" | "dismissed";
+
+export type LspCustomServer = {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  /** languageResolver id -> LSP languageId */
+  languages: Record<string, string>;
+  rootMarkers: string[];
+};
+
 export type Preferences = {
+  lspActivation: Record<string, LspActivation>;
+  lspCustomServers: LspCustomServer[];
   theme: ThemePref;
   themeId: string;
   backgroundKind: BackgroundKind;
@@ -210,6 +224,8 @@ const KEY_AGENT_NOTIFICATIONS = "agentNotifications";
 const KEY_SHORTCUTS = "shortcuts";
 const KEY_EDITOR_AUTO_SAVE = "editorAutoSave";
 const KEY_EDITOR_AUTO_SAVE_DELAY = "editorAutoSaveDelay";
+const KEY_LSP_ACTIVATION = "lspActivation";
+const KEY_LSP_CUSTOM_SERVERS = "lspCustomServers";
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -275,6 +291,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   shortcuts: {} as Record<ShortcutId, KeyBinding[]>,
   editorAutoSave: false,
   editorAutoSaveDelay: 1000,
+  lspActivation: {},
+  lspCustomServers: [],
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -298,6 +316,12 @@ export async function loadPreferences(): Promise<Preferences> {
   const map = new Map<string, unknown>(entries);
   const get = <T>(k: string): T | undefined => map.get(k) as T | undefined;
   return {
+    lspActivation:
+      get<Record<string, LspActivation>>(KEY_LSP_ACTIVATION) ??
+      DEFAULT_PREFERENCES.lspActivation,
+    lspCustomServers:
+      get<LspCustomServer[]>(KEY_LSP_CUSTOM_SERVERS) ??
+      DEFAULT_PREFERENCES.lspCustomServers,
     theme: get<ThemePref>(KEY_THEME) ?? DEFAULT_PREFERENCES.theme,
     themeId: get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
     backgroundKind:
@@ -438,6 +462,37 @@ export async function loadPreferences(): Promise<Preferences> {
         DEFAULT_PREFERENCES.editorAutoSaveDelay,
     ),
   };
+}
+
+// Serialize the read-modify-write so concurrent toggles (e.g. two tabs' status
+// pills flipped in the same tick) can't clobber each other's changes.
+let lspActivationWriteQueue: Promise<unknown> = Promise.resolve();
+
+export async function setLspActivation(
+  id: string,
+  value: LspActivation | null,
+): Promise<void> {
+  const run = lspActivationWriteQueue.then(async () => {
+    const current =
+      ((await store.get(KEY_LSP_ACTIVATION)) as Record<
+        string,
+        LspActivation
+      >) ?? {};
+    const next = { ...current };
+    if (value === null) delete next[id];
+    else next[id] = value;
+    await writePref(KEY_LSP_ACTIVATION, next);
+  });
+  // Chain on a non-rejecting tail so one failed write can't wedge the queue,
+  // but still surface this write's own error to its caller.
+  lspActivationWriteQueue = run.catch(() => {});
+  await run;
+}
+
+export async function setLspCustomServers(
+  value: LspCustomServer[],
+): Promise<void> {
+  await writePref(KEY_LSP_CUSTOM_SERVERS, value);
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {

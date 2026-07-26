@@ -2,6 +2,7 @@ import { getCustomEndpointKey, getKey } from "@/features/ai-companion/ai/lib/key
 import { endpointIdFromCompatModel } from "@/features/ai-companion/ai/config";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import { onKeysChanged } from "@/features/layout-chrome/settings/store";
+import { useLspExtension } from "@/features/lsp";
 import { redo, undo } from "@codemirror/commands";
 import {
   findNext,
@@ -20,11 +21,13 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   buildSharedExtensions,
   languageCompartment,
+  lspCompartment,
   vimCompartment,
   wrapCompartment,
 } from "./lib/extensions";
@@ -83,6 +86,16 @@ export const CodePaneDetail = forwardRef<EditorPaneHandle, Props>(
     const editorWordWrap = usePreferencesStore((s) => s.editorWordWrap);
     const languageRef = useRef<string | null>(null);
     const apiKeyRef = useRef<string | null>(null);
+    const [langId, setLangId] = useState<string | null>(null);
+
+    // Language-server extension for the current file/language, reconfigured
+    // imperatively so the editor state is never rebuilt.
+    const lspExt = useLspExtension(path, langId, doc.status === "ready");
+    useEffect(() => {
+      const view = cmRef.current?.view;
+      if (!view) return;
+      view.dispatch({ effects: lspCompartment.reconfigure(lspExt ?? []) });
+    }, [lspExt]);
 
     useEffect(() => {
       let cancelled = false;
@@ -180,6 +193,7 @@ export const CodePaneDetail = forwardRef<EditorPaneHandle, Props>(
         })),
         ...buildSharedExtensions(),
         languageCompartment.of([]),
+        lspCompartment.of([]),
         inlineCompletion({
           getPrefs: () => {
             const s = usePreferencesStore.getState();
@@ -271,6 +285,7 @@ export const CodePaneDetail = forwardRef<EditorPaneHandle, Props>(
       void resolve().then((result) => {
         if (cancelled) return;
         if (result.id) languageRef.current = result.id;
+        setLangId(result.id || null);
         const view = cmRef.current?.view;
         if (!view) return;
         view.dispatch({
