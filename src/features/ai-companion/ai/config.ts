@@ -189,6 +189,33 @@ export type ModelInfo = {
 export const MODELS = [
   // ── OpenAI ────────────────────────────────────────────────────────────────
   {
+    id: "gpt-5.6-sol",
+    provider: "openai",
+    label: "GPT-5.6 Sol",
+    hint: "Frontier",
+    description: "Newest frontier tier — hardest reasoning and agentic coding.",
+    capabilities: { intelligence: 5, speed: 3, cost: 1 },
+    tags: ["vision", "reasoning", "tools", "coding"],
+  },
+  {
+    id: "gpt-5.6-terra",
+    provider: "openai",
+    label: "GPT-5.6 Terra",
+    hint: "Balanced",
+    description: "Balances intelligence and cost for everyday work.",
+    capabilities: { intelligence: 4, speed: 4, cost: 3 },
+    tags: ["vision", "reasoning", "tools", "coding"],
+  },
+  {
+    id: "gpt-5.6-luna",
+    provider: "openai",
+    label: "GPT-5.6 Luna",
+    hint: "Fast",
+    description: "Fastest, most cost-efficient tier for high-volume work.",
+    capabilities: { intelligence: 3, speed: 5, cost: 5 },
+    tags: ["vision", "tools"],
+  },
+  {
     id: "gpt-5.5",
     provider: "openai",
     label: "GPT-5.5",
@@ -233,17 +260,17 @@ export const MODELS = [
     capabilities: { intelligence: 4, speed: 4, cost: 3 },
     tags: ["tools", "coding"],
   },
-  {
-    id: "gpt-4.1-mini",
-    provider: "openai",
-    label: "GPT-4.1 mini",
-    hint: "Cheap",
-    description: "Ultra-cheap workhorse for bulk tasks.",
-    capabilities: { intelligence: 3, speed: 4, cost: 5 },
-    tags: ["vision", "tools"],
-  },
 
   // ── Anthropic ─────────────────────────────────────────────────────────────
+  {
+    id: "claude-sonnet-5",
+    provider: "anthropic",
+    label: "Claude Sonnet 5",
+    hint: "Newest",
+    description: "Latest-generation Claude — frontier reasoning at Sonnet speed and cost.",
+    capabilities: { intelligence: 5, speed: 4, cost: 2 },
+    tags: ["vision", "reasoning", "tools", "coding"],
+  },
   {
     id: "claude-opus-4-8",
     provider: "anthropic",
@@ -348,6 +375,15 @@ export const MODELS = [
 
   // ── xAI ───────────────────────────────────────────────────────────────────
   {
+    id: "grok-4.5",
+    provider: "xai",
+    label: "Grok 4.5",
+    hint: "Newest",
+    description: "Newest Grok — recommended for code and chat, strong agentic tool calling.",
+    capabilities: { intelligence: 5, speed: 3, cost: 2 },
+    tags: ["vision", "reasoning", "tools", "coding"],
+  },
+  {
     id: "grok-4.20-reasoning",
     provider: "xai",
     label: "Grok 4.20 Reasoning",
@@ -364,15 +400,6 @@ export const MODELS = [
     description: "Fast tier for chat and tools.",
     capabilities: { intelligence: 4, speed: 4, cost: 3 },
     tags: ["tools"],
-  },
-  {
-    id: "grok-4-fast-reasoning",
-    provider: "xai",
-    label: "Grok 4 Fast",
-    hint: "Reasoning",
-    description: "Cheaper Grok 4 with vision and reasoning.",
-    capabilities: { intelligence: 4, speed: 4, cost: 4 },
-    tags: ["vision", "reasoning", "tools"],
   },
   {
     id: "grok-4.3",
@@ -411,15 +438,6 @@ export const MODELS = [
     description: "Cheap and fast everyday tier.",
     capabilities: { intelligence: 4, speed: 5, cost: 5 },
     tags: ["reasoning", "tools"],
-  },
-  {
-    id: "deepseek-reasoner",
-    provider: "deepseek",
-    label: "DeepSeek Reasoner",
-    hint: "Thinking",
-    description: "Chain-of-thought at open-weight prices.",
-    capabilities: { intelligence: 5, speed: 2, cost: 4 },
-    tags: ["reasoning", "coding"],
   },
 
   // ── Mistral ────────────────────────────────────────────────────────────────
@@ -618,12 +636,15 @@ export const DEFAULT_MODEL_ID: ModelId = "gpt-5.4-mini";
  *  context-usage indicator in the AI mini-window header. Conservative
  *  estimates — actual provider limits may shift. */
 export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  "gpt-5.6-sol": 1_050_000,
+  "gpt-5.6-terra": 1_050_000,
+  "gpt-5.6-luna": 1_050_000,
   "gpt-5.5": 1_050_000,
   "gpt-5.5-pro": 1_050_000,
   "gpt-5.4-mini": 400_000,
   "gpt-5.4-nano": 400_000,
   "gpt-5.3-codex": 400_000,
-  "gpt-4.1-mini": 128_000,
+  "claude-sonnet-5": 1_000_000,
   "claude-opus-4-7": 200_000,
   "claude-opus-4-8": 1_000_000,
   "claude-sonnet-4-6": 200_000,
@@ -635,14 +656,13 @@ export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "gemini-3-flash-preview": 1_000_000,
   "gemini-2.5-pro": 1_000_000,
   "gemini-2.5-flash": 1_000_000,
+  "grok-4.5": 500_000,
   "grok-4.20-reasoning": 2_000_000,
   "grok-4.20-non-reasoning": 2_000_000,
-  "grok-4-fast-reasoning": 2_000_000,
   "grok-4.3": 1_000_000,
   "grok-build-0.1": 256_000,
   "deepseek-v4-pro": 1_000_000,
   "deepseek-v4-flash": 1_000_000,
-  "deepseek-reasoner": 128_000,
   "gpt-oss-120b": 128_000,
   "llama3.3-70b": 128_000,
   "qwen-3-32b": 32_000,
@@ -682,7 +702,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5.4-mini": { input: 0.4, output: 1.6, cacheRead: 0.04 },
   "gpt-5.4-nano": { input: 0.1, output: 0.4, cacheRead: 0.01 },
   "gpt-5.3-codex": { input: 1.5, output: 6, cacheRead: 0.15 },
-  "gpt-4.1-mini": { input: 0.4, output: 1.6, cacheRead: 0.1 },
+  "claude-sonnet-5": { input: 3, output: 15, cacheRead: 0.3 },
   "claude-opus-4-7": { input: 15, output: 75, cacheRead: 1.5 },
   "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
   "claude-opus-4-6": { input: 15, output: 75, cacheRead: 1.5 },
@@ -694,14 +714,13 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   "gemini-3-flash-preview": { input: 0.3, output: 2.5, cacheRead: 0.075 },
   "gemini-2.5-pro": { input: 1.25, output: 10, cacheRead: 0.31 },
   "gemini-2.5-flash": { input: 0.3, output: 2.5, cacheRead: 0.075 },
+  "grok-4.5": { input: 2, output: 6 },
   "grok-4.20-reasoning": { input: 3, output: 15 },
   "grok-4.20-non-reasoning": { input: 1, output: 5 },
-  "grok-4-fast-reasoning": { input: 0.2, output: 0.5 },
   "grok-4.3": { input: 1.25, output: 2.5 },
   "grok-build-0.1": { input: 1, output: 2 },
   "deepseek-v4-pro": { input: 0.28, output: 1.1, cacheRead: 0.028 },
   "deepseek-v4-flash": { input: 0.07, output: 0.27, cacheRead: 0.007 },
-  "deepseek-reasoner": { input: 0.55, output: 2.19, cacheRead: 0.14 },
 };
 
 export function estimateCost(
@@ -848,7 +867,7 @@ Rules:
 
 const LITE_SYSTEM_PROMPT_MODEL_IDS = new Set<string>([
   "gpt-5.4-nano",
-  "gpt-4.1-mini",
+  "gpt-5.6-luna",
   "claude-haiku-4-5",
   "gemini-2.5-flash",
   "gemini-3-flash-preview",
