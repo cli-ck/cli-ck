@@ -356,7 +356,7 @@ export function ModelsSection() {
         customEndpoints={customEndpoints}
       />
 
-      <VoiceBlock />
+      <VoiceBlock keys={keys} />
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -697,6 +697,17 @@ function AutocompleteRow({
 
   const hasKey = providerNeedsKey(provider) ? !!keys[provider] : true;
 
+  // Only providers you've actually connected (plus configured compat endpoints)
+  // are selectable — mirrors the chat-model picker, no grayed-out clutter.
+  const hasSelectable = useMemo(
+    () =>
+      items.some(
+        (m) =>
+          m.provider === "openai-compatible" || configuredIds.has(m.provider),
+      ),
+    [items, configuredIds],
+  );
+
   return (
     <>
       <FieldRow label="Autocomplete">
@@ -709,16 +720,22 @@ function AutocompleteRow({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                disabled={!enabled}
+                disabled={!enabled || !hasSelectable}
                 className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
               >
-                <span className="flex items-center gap-2 truncate">
-                  <ProviderIcon provider={currentModel.provider} size={12} />
-                  <span className="truncate">{currentModel.label}</span>
-                  <span className="text-muted-foreground">
-                    · {currentModel.hint}
+                {hasSelectable ? (
+                  <span className="flex items-center gap-2 truncate">
+                    <ProviderIcon provider={currentModel.provider} size={12} />
+                    <span className="truncate">{currentModel.label}</span>
+                    <span className="text-muted-foreground">
+                      · {currentModel.hint}
+                    </span>
                   </span>
-                </span>
+                ) : (
+                  <span className="truncate text-muted-foreground">
+                    Add a provider to enable autocomplete
+                  </span>
+                )}
                 <HugeiconsIcon
                   icon={ArrowDown01Icon}
                   size={11}
@@ -732,27 +749,21 @@ function AutocompleteRow({
               collisionPadding={12}
               className="max-h-72 min-w-70 overflow-y-auto"
             >
-              {PROVIDERS.map((p) => {
+              {PROVIDERS.filter(
+                (p) => p.id === "openai-compatible" || configuredIds.has(p.id),
+              ).map((p) => {
                 const list = grouped.get(p.id);
                 if (!list || list.length === 0) return null;
-                const pConfigured =
-                  p.id === "openai-compatible" || configuredIds.has(p.id);
                 return (
                   <div key={p.id} className="px-1 pt-1.5 first:pt-1">
                     <div className="mb-0.5 flex items-center gap-1.5 px-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                       <ProviderIcon provider={p.id} size={11} />
                       <span>{p.label}</span>
-                      {!pConfigured ? (
-                        <span className="ml-auto text-[9.5px] normal-case tracking-normal text-muted-foreground/70">
-                          not connected
-                        </span>
-                      ) : null}
                     </div>
                     {list.map((m) => (
                       <DropdownMenuItem
                         key={m.id}
-                        disabled={!pConfigured}
-                        onSelect={() => pConfigured && setModel(m.id, p.id)}
+                        onSelect={() => setModel(m.id, p.id)}
                         className={cn(
                           "text-[11.5px]",
                           m.id === modelId && "bg-accent/50",
@@ -773,7 +784,11 @@ function AutocompleteRow({
           </DropdownMenu>
         </div>
       </FieldRow>
-      {enabled && !hasKey ? (
+      {enabled && !hasSelectable ? (
+        <p className="pl-19 text-[10.5px] text-muted-foreground">
+          Add a provider below to enable autocomplete.
+        </p>
+      ) : enabled && !hasKey ? (
         <p className="pl-19 text-[10.5px] text-muted-foreground">
           {getProvider(provider).label} isn't connected — add it below.
         </p>
@@ -1254,15 +1269,61 @@ function StatusLine({
   );
 }
 
-function VoiceBlock() {
+function VoiceBlock({ keys }: { keys: KeysMap }) {
   const sttProvider = usePreferencesStore((s) => s.sttProvider);
   const groqSttModel = usePreferencesStore((s) => s.groqSttModel);
   const whispercppBaseURL = usePreferencesStore((s) => s.whispercppBaseURL);
   const [urlDraft, setUrlDraft] = useState(whispercppBaseURL);
   const [groqModelDraft, setGroqModelDraft] = useState(groqSttModel);
+  const [setupOpen, setSetupOpen] = useState(sttProvider === "whispercpp");
+  const [cppStatus, setCppStatus] = useState<
+    "idle" | "testing" | "ok" | "fail"
+  >("idle");
 
   useEffect(() => setUrlDraft(whispercppBaseURL), [whispercppBaseURL]);
   useEffect(() => setGroqModelDraft(groqSttModel), [groqSttModel]);
+
+  // Whisper.cpp is NOT bundled — it's a client for a server the user runs.
+  // Health-check the loopback URL and only offer it once something responds.
+  useEffect(() => {
+    let cancelled = false;
+    const target = whispercppBaseURL.trim() || WHISPERCPP_DEFAULT_BASE_URL;
+    setCppStatus("testing");
+    invoke<number>("lm_ping", { baseUrl: target })
+      .then((status) => {
+        if (!cancelled) setCppStatus(status > 0 ? "ok" : "fail");
+      })
+      .catch(() => {
+        if (!cancelled) setCppStatus("fail");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [whispercppBaseURL]);
+
+  const cppReachable = cppStatus === "ok";
+
+  // Only providers the user can actually use: cloud STT with a key set, and
+  // local Whisper.cpp once its server is reachable.
+  const available = (Object.keys(STT_PROVIDER_LABELS) as SttProvider[]).filter(
+    (p) => {
+      if (p === "whispercpp") return cppReachable;
+      return !!keys[p as ProviderId];
+    },
+  );
+  const hasAny = available.length > 0;
+  const selectedAvailable = available.includes(sttProvider);
+
+  const retestCpp = async () => {
+    const target = urlDraft.trim() || WHISPERCPP_DEFAULT_BASE_URL;
+    setCppStatus("testing");
+    try {
+      const status = await invoke<number>("lm_ping", { baseUrl: target });
+      setCppStatus(status > 0 ? "ok" : "fail");
+    } catch {
+      setCppStatus("fail");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
@@ -1276,9 +1337,25 @@ function VoiceBlock() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
+              disabled={!hasAny}
               className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
             >
-              <span>{STT_PROVIDER_LABELS[sttProvider]}</span>
+              {hasAny ? (
+                <span
+                  className={cn(
+                    "truncate",
+                    !selectedAvailable && "text-muted-foreground",
+                  )}
+                >
+                  {selectedAvailable
+                    ? STT_PROVIDER_LABELS[sttProvider]
+                    : "Select a voice provider"}
+                </span>
+              ) : (
+                <span className="truncate text-muted-foreground">
+                  Add a provider to enable voice input
+                </span>
+              )}
               <HugeiconsIcon
                 icon={ArrowDown01Icon}
                 size={11}
@@ -1288,7 +1365,7 @@ function VoiceBlock() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-44 p-1">
-            {(Object.keys(STT_PROVIDER_LABELS) as SttProvider[]).map((p) => (
+            {available.map((p) => (
               <DropdownMenuItem
                 key={p}
                 onSelect={() => void setSttProvider(p)}
@@ -1304,16 +1381,28 @@ function VoiceBlock() {
         </DropdownMenu>
       </FieldRow>
 
-      <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-        {sttProvider === "openai" &&
-          "Uses your official OpenAI API key and the Whisper model for transcription."}
-        {sttProvider === "groq" &&
-          "Uses your official Groq API key and Groq's Whisper endpoint for transcription."}
-        {sttProvider === "whispercpp" &&
-          "Connects to a local Whisper.cpp server for fully offline transcription."}
-      </p>
+      {!hasAny ? (
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Connect OpenAI or Groq below, or start a local Whisper.cpp server, to
+          use voice input.
+        </p>
+      ) : selectedAvailable ? (
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          {sttProvider === "openai" &&
+            "Uses your official OpenAI API key and the Whisper model for transcription."}
+          {sttProvider === "groq" &&
+            "Uses your official Groq API key and Groq's Whisper endpoint for transcription."}
+          {sttProvider === "whispercpp" &&
+            "Connects to your local Whisper.cpp server for fully offline transcription."}
+        </p>
+      ) : (
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Your selected voice provider isn't connected right now — pick an
+          available one above.
+        </p>
+      )}
 
-      {sttProvider === "groq" && (
+      {sttProvider === "groq" && selectedAvailable && (
         <div className="flex flex-col gap-2.5">
           <FieldRow label="Model">
             <Input
@@ -1331,23 +1420,68 @@ function VoiceBlock() {
         </div>
       )}
 
-      {sttProvider === "whispercpp" && (
-        <div className="flex flex-col gap-2.5">
-          <FieldRow label="Base URL">
-            <Input
-              value={urlDraft}
-              onChange={(e) => setUrlDraft(e.target.value)}
-              onBlur={() => {
-                const v = urlDraft.trim();
-                if (v !== whispercppBaseURL) void setWhispercppBaseURL(v);
-              }}
-              placeholder={WHISPERCPP_DEFAULT_BASE_URL}
-              spellCheck={false}
-              className="h-8 font-mono text-[11.5px]"
-            />
-          </FieldRow>
-        </div>
-      )}
+      {/* Local Whisper.cpp setup — always available so a server on a custom
+          port can be pointed at and verified before it becomes selectable. */}
+      <div className="flex flex-col gap-2 border-t border-border/50 pt-2.5">
+        <button
+          type="button"
+          onClick={() => setSetupOpen((v) => !v)}
+          className="flex items-center gap-1.5 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <HugeiconsIcon
+            icon={ChevronDown}
+            size={12}
+            strokeWidth={2}
+            className={cn(
+              "transition-transform",
+              setupOpen ? "" : "-rotate-90",
+            )}
+          />
+          <span>Local Whisper.cpp server</span>
+          <span
+            className={cn(
+              "ml-1 h-1.5 w-1.5 rounded-full",
+              cppReachable ? "bg-emerald-500" : "bg-muted-foreground/40",
+            )}
+          />
+          <span className="text-[10px] font-normal">
+            {cppReachable ? "reachable" : "not detected"}
+          </span>
+        </button>
+
+        {setupOpen && (
+          <div className="flex flex-col gap-2.5">
+            <FieldRow label="Base URL">
+              <div className="flex flex-1 items-center gap-2">
+                <Input
+                  value={urlDraft}
+                  onChange={(e) => setUrlDraft(e.target.value)}
+                  onBlur={() => {
+                    const v = urlDraft.trim();
+                    if (v !== whispercppBaseURL) void setWhispercppBaseURL(v);
+                  }}
+                  placeholder={WHISPERCPP_DEFAULT_BASE_URL}
+                  spellCheck={false}
+                  className="h-8 font-mono text-[11.5px]"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => void retestCpp()}
+                  disabled={cppStatus === "testing"}
+                  className="h-8 shrink-0 px-2.5 text-[11px]"
+                >
+                  Test
+                </Button>
+              </div>
+            </FieldRow>
+            <StatusLine status={cppStatus} />
+            <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+              Oz doesn't bundle Whisper.cpp — run your own server (loopback
+              only). It appears as a voice option once it's reachable.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

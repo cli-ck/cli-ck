@@ -97,6 +97,7 @@ The themes below frame every scope decision.
 ### Coming next
 
 - [ ] SSH support (PTY auth and known_hosts first; SFTP and port forwarding later)
+- [ ] On-device / system-native voice input (offline transcription via each OS's speech framework — macOS on-device Speech, Windows speech, with mic-permission prompts — so voice works without a cloud key or a self-run Whisper.cpp server)
 - [ ] Inline terminal auto-suggestions (history-based first; AI-powered opt-in later)
 - [ ] Themes and customizations (terminal themes, UI accents, keybindings, layout)
 - [ ] AI autocomplete improvements in editor (project-aware context, lower latency)
