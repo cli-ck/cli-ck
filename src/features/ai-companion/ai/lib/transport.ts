@@ -71,6 +71,22 @@ type SendOptions = {
   [k: string]: unknown;
 };
 
+/**
+ * Turn a stream error into the message shown to the user. Replaces the AI SDK's
+ * default mask ("An error occurred.") so real provider/model errors are visible.
+ * Exported for tests.
+ */
+export function forwardStreamError(error: unknown): string {
+  if (error == null) return "Unknown error";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 export function createContextAwareTransport(deps: Deps) {
   const run = async (options: SendOptions) => {
     const live = deps.getLive();
@@ -108,6 +124,11 @@ export function createContextAwareTransport(deps: Deps) {
     });
     return result.toUIMessageStream({
       originalMessages: options.messages,
+      // The AI SDK masks stream errors as the generic "An error occurred." by
+      // default. Oz is a local BYOK app — there is no server secret to protect
+      // — so forward the real provider/model error to the user instead, or every
+      // failure (bad model id, auth, rate limit, tool error) is undiagnosable.
+      onError: forwardStreamError,
     });
   };
 
