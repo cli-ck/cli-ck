@@ -32,7 +32,7 @@
     "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/groq": "^3.0.42",
     "@ai-sdk/openai": "^4.0.8",
-    "@ai-sdk/openai-compatible": "^2.0.51",
+    "@ai-sdk/openai-compatible": "^3.0.14",
     "@ai-sdk/react": "^4.0.18",
     "@ai-sdk/xai": "^3.0.96",
     "@codemirror/autocomplete": "^6.20.3",
