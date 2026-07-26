@@ -8,31 +8,35 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { AGENT_ICONS } from "@/features/ai-companion/ai/components/AgentSwitcher";
 import {
-  BUILTIN_AGENTS,
   type Agent,
   type AgentIconId,
+  BUILTIN_AGENTS,
 } from "@/features/ai-companion/ai/lib/agents";
 import {
   isValidHandle,
   normalizeHandle,
   type Snippet,
 } from "@/features/ai-companion/ai/lib/snippets";
-import { newAgentId, useAiAgentsStore } from "@/features/ai-companion/ai/store/aiAgentsStore";
+import {
+  newAgentId,
+  useAiAgentsStore,
+} from "@/features/ai-companion/ai/store/aiAgentsStore";
 import {
   newSnippetId,
   useSnippetsStore,
 } from "@/features/ai-companion/ai/store/snippetsStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import { setCustomInstructions } from "@/features/layout-chrome/settings/store";
+import { cn } from "@/lib/utils";
 import {
   Add01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
   Edit02Icon,
   SparklesIcon,
+  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useRef, useState } from "react";
@@ -67,6 +71,7 @@ export function AgentsSection() {
   }, [hydrateAgents, hydrateSnippets]);
 
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [viewingAgent, setViewingAgent] = useState<Agent | null>(null);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
 
   return (
@@ -107,6 +112,7 @@ export function AgentsSection() {
               agent={a}
               active={a.id === activeAgentId}
               onActivate={() => setActiveAgentId(a.id)}
+              onView={() => setViewingAgent(a)}
               onEdit={a.builtIn ? null : () => setEditingAgent(a)}
               onDelete={a.builtIn ? null : () => removeAgent(a.id)}
             />
@@ -202,6 +208,23 @@ export function AgentsSection() {
         )}
       </section>
 
+      <AgentDetailsDialog
+        agent={viewingAgent}
+        active={viewingAgent?.id === activeAgentId}
+        onClose={() => setViewingAgent(null)}
+        onActivate={() => {
+          if (viewingAgent) setActiveAgentId(viewingAgent.id);
+          setViewingAgent(null);
+        }}
+        onEdit={
+          viewingAgent && !viewingAgent.builtIn
+            ? () => {
+                setEditingAgent(viewingAgent);
+                setViewingAgent(null);
+              }
+            : null
+        }
+      />
       <AgentEditorDialog
         agent={editingAgent}
         existing={customAgents}
@@ -224,24 +247,42 @@ export function AgentsSection() {
   );
 }
 
-function AgentCard({
+export function AgentCard({
   agent,
   active,
   onActivate,
+  onView,
   onEdit,
   onDelete,
 }: {
   agent: Agent;
   active: boolean;
   onActivate: () => void;
+  onView: () => void;
   onEdit: (() => void) | null;
   onDelete: (() => void) | null;
 }) {
   const Icon = AGENT_ICONS[agent.icon] ?? SparklesIcon;
+  // Nested buttons must not bubble their click up to the card's activate handler.
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
   return (
+    // biome-ignore lint/a11y/useSemanticElements: card hosts nested buttons (Use/View/Edit/Delete), cannot be a <button>
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={active}
+      onClick={onActivate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate();
+        }
+      }}
       className={cn(
-        "group relative flex flex-col gap-1.5 rounded-lg border bg-card/60 px-3 py-2.5 transition-colors",
+        "group relative flex cursor-pointer flex-col gap-1.5 rounded-lg border bg-card/60 px-3 py-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "border-foreground/30 ring-1 ring-foreground/10"
           : "border-border/60 hover:border-border",
@@ -269,7 +310,7 @@ function AgentCard({
         <Button
           size="sm"
           variant={active ? "default" : "outline"}
-          onClick={onActivate}
+          onClick={stop(onActivate)}
           className="h-6 gap-1 px-2 text-[10.5px]"
         >
           {active ? (
@@ -286,12 +327,21 @@ function AgentCard({
           )}
         </Button>
         <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-6"
+            onClick={stop(onView)}
+            title="View details"
+          >
+            <HugeiconsIcon icon={ViewIcon} size={11} strokeWidth={1.75} />
+          </Button>
           {onEdit ? (
             <Button
               size="icon"
               variant="ghost"
               className="size-6"
-              onClick={onEdit}
+              onClick={stop(onEdit)}
               title="Edit"
             >
               <HugeiconsIcon icon={Edit02Icon} size={11} strokeWidth={1.75} />
@@ -302,7 +352,7 @@ function AgentCard({
               size="icon"
               variant="ghost"
               className="size-6 text-muted-foreground hover:text-destructive"
-              onClick={onDelete}
+              onClick={stop(onDelete)}
               title="Delete"
             >
               <HugeiconsIcon icon={Delete02Icon} size={11} strokeWidth={1.75} />
@@ -311,6 +361,74 @@ function AgentCard({
         </div>
       </div>
     </div>
+  );
+}
+
+export function AgentDetailsDialog({
+  agent,
+  active,
+  onClose,
+  onActivate,
+  onEdit,
+}: {
+  agent: Agent | null;
+  active: boolean;
+  onClose: () => void;
+  onActivate: () => void;
+  onEdit: (() => void) | null;
+}) {
+  const Icon = agent ? (AGENT_ICONS[agent.icon] ?? SparklesIcon) : SparklesIcon;
+  return (
+    <Dialog open={!!agent} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[14px]">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/40">
+              <HugeiconsIcon icon={Icon} size={14} strokeWidth={1.5} />
+            </span>
+            {agent?.name}
+            {agent?.builtIn ? (
+              <span className="rounded bg-muted/50 px-1 py-0.5 text-[9px] tracking-wide text-muted-foreground uppercase">
+                Built-in
+              </span>
+            ) : null}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="-mx-2 max-h-[calc(100vh-14rem)] overflow-y-auto px-2 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <Label>Description</Label>
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              {agent?.description || "No description."}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Instructions</Label>
+            <pre className="max-h-80 overflow-y-auto rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11.5px] leading-relaxed whitespace-pre-wrap font-sans text-foreground/90">
+              {agent?.instructions || "No instructions."}
+            </pre>
+            {agent?.builtIn ? (
+              <span className="text-[10px] text-muted-foreground">
+                Built-in agents are read-only. Appended to Oz's core system
+                prompt when active.
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Close
+          </Button>
+          {onEdit ? (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              Edit
+            </Button>
+          ) : null}
+          <Button size="sm" disabled={active} onClick={onActivate}>
+            {active ? "Active" : "Use this agent"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

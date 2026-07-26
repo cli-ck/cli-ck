@@ -5,9 +5,10 @@
     "src/settings/main.tsx",
     "scripts/*.mjs",
     "vite.config.ts",
-    "src/styles/globals.css"
+    "src/styles/globals.css",
+    "tests/**/*.{test,spec}.{ts,tsx}"
   ],
-  "project": ["src/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
   "ignore": ["src/components/ui/**", "src/components/ai-elements/**"],
   "ignoreDependencies": [
     "@size-limit/file",
