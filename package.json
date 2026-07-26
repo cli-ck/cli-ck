@@ -29,7 +29,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.9",
     "@ai-sdk/cerebras": "^3.0.5",
-    "@ai-sdk/google": "^3.0.83",
+    "@ai-sdk/google": "^4.0.22",
     "@ai-sdk/groq": "^3.0.42",
     "@ai-sdk/openai": "^4.0.8",
     "@ai-sdk/openai-compatible": "^3.0.14",
