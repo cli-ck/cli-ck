@@ -1,7 +1,16 @@
 # Sidecar binaries
 
-This directory holds the `oz-code-intel` sidecar binary Tauri bundles per
-platform (`bundle.externalBin` in `tauri.conf.json`), named per Tauri's
+**Not currently wired up.** `tauri.conf.json` has no `bundle.externalBin`
+entry yet - see `src/modules/code_intel/mod.rs`'s doc comment for why (in
+short: that would require a real per-platform binary to exist at build
+time for every platform this app ships, which needs either
+`oz-code-intel`'s own release pipeline to have fired for real, or a
+cross-repo build step - neither exists yet). This directory and the
+instructions below describe the *intended future* layout, for whenever
+that's wired back up.
+
+This directory would hold the `oz-code-intel` sidecar binary Tauri bundles
+per platform (`bundle.externalBin` in `tauri.conf.json`), named per Tauri's
 sidecar convention: `oz-code-intel-<target-triple>[.exe]`.
 
 Nothing in this directory is committed (see `.gitignore`) - these are build
