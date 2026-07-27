@@ -186,6 +186,30 @@ src/
   components/               shadcn/ui + AI Elements
 ```
 
+## Releasing
+
+The version string lives in five places (`package.json`,
+`npm-wrapper/package.json`, `src-tauri/Cargo.toml`,
+`src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`'s own `oz` entry) -
+missing one leaves the app internally inconsistent (a real past instance:
+Settings' "Build" field carried a hand-typed version string that quietly
+drifted stale across several releases). Always bump all five together via:
+
+```bash
+node scripts/bump-version.mjs 0.2.5
+```
+
+This updates the first four and regenerates `Cargo.lock`'s `oz` entry via
+`cargo check` (review that diff - it should touch only the `oz` package's
+own version, nothing else). Then:
+
+1. Add the new version's entry to `CHANGELOG.md` (own PR or same commit).
+2. Commit as `chore(release): vX.Y.Z` and merge to `main`.
+3. Tag `main` as `vX.Y.Z` and push the tag - `.github/workflows/release.yml`
+   builds and publishes a **draft** GitHub Release for all four platforms;
+   review it before publishing so the auto-updater doesn't pick it up
+   until you're ready.
+
 ## FAQ
 
 **Q: Should I ask before fixing a typo or obvious bug?**

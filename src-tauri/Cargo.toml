@@ -1,6 +1,6 @@
 [package]
 name = "oz"
-version = "0.2.4"
+version = "0.2.5"
 description = "Oz — an open-source AI-native terminal emulator"
 authors = ["codecollab-co"]
 license = "Apache-2.0"
