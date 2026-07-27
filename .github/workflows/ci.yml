@@ -78,6 +78,11 @@ jobs:
         with:
           tool: cargo-nextest,cargo-machete
 
+      - name: ensure oz-code-intel sidecar placeholder
+        shell: bash
+        working-directory: src-tauri
+        run: ./scripts/ensure-code-intel-sidecar-stub.sh
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --all-targets --locked
@@ -115,6 +120,11 @@ jobs:
         with:
           tool: cargo-nextest
 
+      - name: ensure oz-code-intel sidecar placeholder
+        shell: bash
+        working-directory: src-tauri
+        run: ./scripts/ensure-code-intel-sidecar-stub.sh
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --all-targets --locked
@@ -150,6 +160,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov,cargo-nextest
+
+      - name: ensure oz-code-intel sidecar placeholder
+        shell: bash
+        working-directory: src-tauri
+        run: ./scripts/ensure-code-intel-sidecar-stub.sh
 
       - name: Generate coverage
         working-directory: src-tauri
