@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
 const REPO_URL = "https://github.com/codecollab-co/oz";
+const WEBSITE_URL = "https://codecollab-co.github.io/oz-website/";
 
 const PLATFORM_LABEL: Record<string, string> = {
   macos: "macOS",
@@ -56,14 +57,14 @@ export function AboutSection() {
     try {
       const p = platform();
       const a = arch();
-      if (p === "macos") {
-        setBuild("MacOS AARCH64 v0.2.2");
-      } else {
-        const platformLabel = PLATFORM_LABEL[p] ?? p;
-        setBuild(`${platformLabel} · ${a}`);
-      }
+      const platformLabel = PLATFORM_LABEL[p] ?? p;
+      setBuild(`${platformLabel} · ${a}`);
     } catch {
-      setBuild("MacOS AARCH64 v0.2.2");
+      // Falls back to the real fetched version below rather than a
+      // hardcoded platform/version string, which drifted stale across
+      // several releases (still read "v0.2.2" as of the real v0.2.4/0.2.5
+      // releases) since nothing kept it in sync.
+      setBuild("");
     }
   }, []);
 
@@ -72,7 +73,12 @@ export function AboutSection() {
       <SectionHeader title="About" description="" />
 
       <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/60 p-5">
-        <img src="/logo.png" alt="Oz" className="size-12 rounded-xl" draggable={false} />
+        <img
+          src="/logo.png"
+          alt="Oz"
+          className="size-12 rounded-xl"
+          draggable={false}
+        />
         <div className="flex min-w-0 flex-col">
           <span className="text-[15px] font-semibold tracking-tight">
             {name}
@@ -88,9 +94,7 @@ export function AboutSection() {
 
       <dl className="grid grid-cols-[110px_1fr] gap-y-2.5 text-[12px]">
         <dt className="text-muted-foreground">Build</dt>
-        <dd className="font-mono text-[11.5px]">
-          {build || `v${version}`}
-        </dd>
+        <dd className="font-mono text-[11.5px]">{build || `v${version}`}</dd>
 
         <dt className="text-muted-foreground">Bundle ID</dt>
         <dd className="font-mono text-[11.5px]">app.codecollab-co.oz</dd>
@@ -113,10 +117,11 @@ export function AboutSection() {
         <dd>
           <button
             type="button"
+            onClick={() => void openUrl(WEBSITE_URL)}
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
             <HugeiconsIcon icon={Globe02Icon} size={12} strokeWidth={1.75} />
-            (Coming soon)
+            codecollab-co.github.io/oz-website
           </button>
         </dd>
       </dl>

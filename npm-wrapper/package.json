@@ -1,6 +1,6 @@
 {
   "name": "@codecollab.co/oz",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Oz — an open-source AI-native terminal emulator CLI launcher",
   "main": "bin/oz.js",
   "bin": {
