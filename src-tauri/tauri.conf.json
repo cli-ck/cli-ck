@@ -45,6 +45,9 @@
     "copyright": "Copyright 2026 CodeCollab Co.",
     "license": "Apache-2.0",
     "publisher": "CodeCollab Co.",
+    "externalBin": [
+      "binaries/oz-code-intel"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

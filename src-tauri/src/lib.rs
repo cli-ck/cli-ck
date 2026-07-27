@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{agent, fs, git, history, lsp, net, pty, secrets, shell, workspace};
+use modules::{agent, code_intel, fs, git, history, lsp, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
@@ -117,6 +117,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Skip restoring VISIBLE — frontend calls window.show() after first
         // paint so the user never sees a transparent window-shadow flash on
@@ -171,12 +172,16 @@ pub fn run() {
         })
         .manage(LaunchDir(Mutex::new(cli_dir)))
         .manage(lsp::LspState::default())
+        .manage(code_intel::CodeIntelState::default())
         .invoke_handler(tauri::generate_handler![
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,
             lsp::lsp_spawn,
             lsp::lsp_send,
+            code_intel::code_intel_spawn,
+            code_intel::code_intel_request,
+            code_intel::code_intel_kill,
             lsp::lsp_kill,
             pty::pty_open,
             pty::pty_write,

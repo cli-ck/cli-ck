@@ -26,3 +26,9 @@ stats.html
 *.sw?
 
 *.tsbuildinfo
+
+# Sidecar binaries (oz-code-intel): fetched from that repo's own release
+# artifacts (or built locally for dev), never committed here. See
+# src-tauri/binaries/README.md.
+/src-tauri/binaries/*
+!/src-tauri/binaries/README.md
