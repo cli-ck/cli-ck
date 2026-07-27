@@ -17,8 +17,10 @@ Nothing in this directory is committed (see `.gitignore`) - these are build
 artifacts, not source, and are produced by a separate repo
 (`codecollab-co/oz-code-intel`) with its own release cadence.
 
-**For local development**, build the helper from a checkout of that repo and
-copy it in under your machine's target triple, e.g. on Apple Silicon:
+**Once `bundle.externalBin` is restored** (not yet - see above), local
+development would mean building the helper from a checkout of that repo
+and copying it in under your machine's target triple, e.g. on Apple
+Silicon:
 
 ```bash
 cd ../oz-code-intel
@@ -29,7 +31,14 @@ cp target/release/oz-code-intel \
 
 (Run `rustc -vV | grep host` to get your own target triple.)
 
-**In CI / for a real release**, this will instead download the matching
-per-platform artifact from `oz-code-intel`'s own GitHub Releases once that
-repo has actually published one (see its `ROADMAP.md` Slice 25) - not built
-here.
+Doing this today, with `externalBin` still absent, doesn't make the
+sidecar spawnable - `app.shell().sidecar(...)` looks it up via the Tauri
+config, not just by checking this directory, so `CodeIntelSession::spawn`
+will still return "sidecar not registered" regardless. Restore the
+`tauri.conf.json` entry and the matching `shell:allow-execute` capability
+first.
+
+**In CI / for a real release**, once that's restored, this will instead
+download the matching per-platform artifact from `oz-code-intel`'s own
+GitHub Releases once that repo has actually published one (see its
+`ROADMAP.md` Slice 25) - not built here.
