@@ -11,6 +11,20 @@
 //! settings/UI surface references them. That's intentional, not an
 //! oversight: oz-code-intel integration ships as a user-visible feature in
 //! a later OZ release, not this one.
+//!
+//! **Not yet registered as a bundled Tauri sidecar** (no
+//! `bundle.externalBin` entry in `tauri.conf.json`) - that would require a
+//! real per-platform `oz-code-intel` binary to exist at build time for
+//! every platform this app ships (macOS x2, Windows, Linux), which depends
+//! on that repo's own release pipeline actually firing (see its
+//! ROADMAP.md, Slice 25) or a cross-repo build step neither exists yet.
+//! `CodeIntelSession::spawn`'s `app.shell().sidecar(...)` call will return
+//! a clear "sidecar not registered" error until that's wired up - harmless,
+//! since nothing calls it. Add the `externalBin` entry back (and a
+//! matching `shell:allow-execute` capability) once a real binary supply
+//! chain exists; don't paper over the gap with a placeholder file in the
+//! meantime; a real `tauri build` bundles and *signs* whatever is at that
+//! path, so a fake stand-in has no safe place to hide.
 mod session;
 
 use std::sync::atomic::{AtomicU32, Ordering};
