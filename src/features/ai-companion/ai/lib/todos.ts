@@ -30,7 +30,7 @@ export async function deleteTodos(sessionId: string): Promise<void> {
 }
 
 export function newTodoId(): string {
-  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `t-${crypto.randomUUID()}`;
 }
 
 /**

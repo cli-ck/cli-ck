@@ -33,6 +33,12 @@ import { SLASH_COMMANDS, OZ_CMD_RE } from "../lib/slashCommands";
 import { Spinner } from "@/components/ui/spinner";
 import { useAiChatStore } from "../store/aiChatStore";
 import { sendMessage } from "../store/aiChatRuntime";
+import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
+import {
+  availableModelsForTiers,
+  nextTierUp,
+  resolveTierModel,
+} from "../lib/modelTiers";
 import type {
   ChatStatus,
   DynamicToolUIPart,
@@ -79,8 +85,7 @@ type ContextChip =
 
 const SELECTION_RE =
   /<selection\s+source="(terminal|editor)">\n?([\s\S]*?)\n?<\/selection>/g;
-const FILE_RE =
-  /<file\s+name="([^"]+)"[^>]*>\n?([\s\S]*?)\n?<\/file>/g;
+const FILE_RE = /<file\s+name="([^"]+)"[^>]*>\n?([\s\S]*?)\n?<\/file>/g;
 const SNIPPET_RE = /<snippet\s+name="([^"]+)">\n?[\s\S]*?\n?<\/snippet>/g;
 
 function countLines(s: string): number {
@@ -194,13 +199,30 @@ export function AiChatView({
       : null;
   const step = useAiChatStore((s) => s.agentMeta.step);
   const hitStepCap = useAiChatStore((s) => s.agentMeta.hitStepCap);
+  const lastTurnAutoTier = useAiChatStore((s) => s.agentMeta.lastTurnAutoTier);
   const compactionNotice = useAiChatStore((s) => s.agentMeta.compactionNotice);
   const patchAgentMeta = useAiChatStore((s) => s.patchAgentMeta);
+  const apiKeys = useAiChatStore((s) => s.apiKeys);
+  const setSelectedModelId = useAiChatStore((s) => s.setSelectedModelId);
+  const modelTiers = usePreferencesStore((s) => s.modelTiers);
   const showContinue =
     !isBusy && hitStepCap && lastMessage?.role === "assistant";
 
+  // Auto mode only: offer a one-click retry on a stronger tier when the
+  // turn stalled — never silent/automatic (see ModelSwitchingPlan.md §2).
+  const escalateTarget = useMemo(() => {
+    if (!lastTurnAutoTier) return null;
+    const next = nextTierUp(lastTurnAutoTier);
+    if (!next) return null;
+    return (
+      resolveTierModel(next, availableModelsForTiers(apiKeys), modelTiers) ??
+      null
+    );
+  }, [lastTurnAutoTier, apiKeys, modelTiers]);
+
   const onApproval = useCallback(
-    (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }),
+    (id: string, approved: boolean) =>
+      addToolApprovalResponse({ id, approved }),
     [addToolApprovalResponse],
   );
 
@@ -248,6 +270,18 @@ export function AiChatView({
                 "Continue from where you stopped. Don't recap — just keep going.",
               );
             }}
+            escalate={
+              escalateTarget && {
+                label: `Retry with ${escalateTarget.label}`,
+                onEscalate: () => {
+                  patchAgentMeta({ hitStepCap: false });
+                  setSelectedModelId(escalateTarget.id);
+                  void sendMessage(
+                    "Continue from where you stopped. Don't recap — just keep going.",
+                  );
+                },
+              }
+            }
           />
         )}
         {error && (
@@ -298,14 +332,27 @@ const CompactionNotice = memo(function CompactionNotice({
 
 const ContinueRow = memo(function ContinueRow({
   onContinue,
+  escalate,
 }: {
   onContinue: () => void;
+  escalate?: { label: string; onEscalate: () => void } | null;
 }) {
   return (
     <div className="flex items-center gap-2 rounded-md border border-border/50 bg-card/60 px-2.5 py-1.5 text-[11px]">
       <span className="flex-1 text-muted-foreground">
-        Hit the step limit. Continue to keep going.
+        {escalate
+          ? "Hit the step limit — this may have needed a stronger model."
+          : "Hit the step limit. Continue to keep going."}
       </span>
+      {escalate && (
+        <button
+          type="button"
+          onClick={escalate.onEscalate}
+          className="rounded-md border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          {escalate.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={onContinue}
@@ -363,9 +410,10 @@ const RenderedMessage = memo(function RenderedMessage({
     );
   }
 
-  const groups = useMemo(() => buildPartGroups(message.parts as AnyPart[]), [
-    message.parts,
-  ]);
+  const groups = useMemo(
+    () => buildPartGroups(message.parts as AnyPart[]),
+    [message.parts],
+  );
 
   return (
     <Message from={message.role}>
@@ -534,9 +582,7 @@ const ReadGroup = memo(function ReadGroup({ parts }: { parts: AnyPart[] }) {
                 strokeWidth={1.75}
                 className="shrink-0 opacity-60"
               />
-              <span className="truncate text-foreground">
-                {basename(path)}
-              </span>
+              <span className="truncate text-foreground">{basename(path)}</span>
               <span className="truncate opacity-60">{path}</span>
             </li>
           ))}
