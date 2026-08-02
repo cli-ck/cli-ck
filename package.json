@@ -30,7 +30,7 @@
     "@ai-sdk/anthropic": "^4.0.18",
     "@ai-sdk/cerebras": "^3.0.14",
     "@ai-sdk/google": "^4.0.22",
-    "@ai-sdk/groq": "^3.0.42",
+    "@ai-sdk/groq": "^4.0.16",
     "@ai-sdk/openai": "^4.0.18",
     "@ai-sdk/openai-compatible": "^3.0.14",
     "@ai-sdk/react": "^4.0.38",
