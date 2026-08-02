@@ -58,7 +58,7 @@ export async function deleteSessionData(id: string): Promise<void> {
 }
 
 export function newSessionId(): string {
-  return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `s-${crypto.randomUUID()}`;
 }
 
 export function deriveTitle(messages: UIMessage[]): string {

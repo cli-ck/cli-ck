@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
-import { MODELS, type ModelInfo, type ProviderId } from "../config";
+import {
+  FREEFORM_PROVIDERS,
+  MODELS,
+  type ModelInfo,
+  PROVIDERS,
+  type ProviderId,
+} from "../config";
 import { createProxyFetch } from "./proxyFetch";
 
 const cloudFetch = createProxyFetch();
@@ -95,16 +101,9 @@ const CATALOG_BASE_URL: Partial<Record<ProviderId, string>> = {
  *  a model by typing an id into a dedicated field instead (see
  *  useModelIdSuggestions) — merging their potentially huge live lists into
  *  this picker would break how a selection resolves to a running model. */
-export const CATALOG_PROVIDERS: readonly ProviderId[] = [
-  "openai",
-  "anthropic",
-  "google",
-  "xai",
-  "cerebras",
-  "groq",
-  "deepseek",
-  "mistral",
-];
+export const CATALOG_PROVIDERS: readonly ProviderId[] = PROVIDERS.filter(
+  (p) => !FREEFORM_PROVIDERS.has(p.id),
+).map((p) => p.id);
 
 async function fetchLiveIdsForProvider(
   provider: ProviderId,
@@ -232,17 +231,27 @@ export function effectiveModelsFor(
   return liveModels[provider] ?? MODELS.filter((m) => m.provider === provider);
 }
 
+function mergeEffectiveModels(
+  models: Partial<Record<ProviderId, ModelInfo[]>>,
+): ModelInfo[] {
+  const seen = new Set(Object.keys(models) as ProviderId[]);
+  const overridden = Object.values(models).flatMap((v) => v ?? []);
+  const rest = MODELS.filter((m) => !seen.has(m.provider));
+  return [...overridden, ...rest];
+}
+
 /** Effective catalog across every provider, for the flat searchable chat
  *  model picker. Freeform providers (openrouter/local/custom) are untouched
  *  static placeholders — they resolve via a separately-typed model id. */
 export function useAllEffectiveModels(): ModelInfo[] {
   const models = useModelCatalogStore((s) => s.models);
-  return useMemo(() => {
-    const seen = new Set(Object.keys(models) as ProviderId[]);
-    const overridden = Object.values(models).flatMap((v) => v ?? []);
-    const rest = MODELS.filter((m) => !seen.has(m.provider));
-    return [...overridden, ...rest];
-  }, [models]);
+  return useMemo(() => mergeEffectiveModels(models), [models]);
+}
+
+/** Non-reactive equivalent of useAllEffectiveModels, for resolution logic
+ *  that runs outside React (tool executors, tier routing). */
+export function getAllEffectiveModelsSnapshot(): ModelInfo[] {
+  return mergeEffectiveModels(useModelCatalogStore.getState().models);
 }
 
 export const OPENROUTER_MODELS_BASE_URL = "https://openrouter.ai/api/v1";

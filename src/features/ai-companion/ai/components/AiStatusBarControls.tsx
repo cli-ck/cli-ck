@@ -43,6 +43,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AUTO_MODEL_ID,
   compatModelIdForEndpoint,
   DEFAULT_MODEL_ID,
   getCompatModelInfo,
@@ -221,20 +222,25 @@ function ModelDropdown() {
   const favoriteIds = usePreferencesStore((s) => s.favoriteModelIds);
   const recentIds = usePreferencesStore((s) => s.recentModelIds);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
-  const current = isCompatModelId(selected)
-    ? getCompatModelInfo(selected, customEndpoints)
-    : isKnownModelId(selected)
-      ? getModel(selected)
-      : (findLiveModel(selected) ?? getModel(DEFAULT_MODEL_ID));
+  const isAuto = selected === AUTO_MODEL_ID;
+  const current = isAuto
+    ? null
+    : isCompatModelId(selected)
+      ? getCompatModelInfo(selected, customEndpoints)
+      : isKnownModelId(selected)
+        ? getModel(selected)
+        : (findLiveModel(selected) ?? getModel(DEFAULT_MODEL_ID));
   const [search, setSearch] = useState("");
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const inputRef = useRef<HTMLInputElement>(null);
-  const currentProviderHasKey = isCompatModelId(selected)
+  const currentProviderHasKey = isAuto
     ? true
-    : providerNeedsKey(current.provider)
-      ? !!apiKeys[current.provider]
-      : true;
+    : isCompatModelId(selected)
+      ? true
+      : providerNeedsKey(current!.provider)
+        ? !!apiKeys[current!.provider]
+        : true;
 
   const hasKeyFor = (id: ProviderId) =>
     providerNeedsKey(id) ? !!apiKeys[id] : true;
@@ -316,12 +322,14 @@ function ModelDropdown() {
               : "text-amber-600 dark:text-amber-400",
           )}
           title={
-            currentProviderHasKey
-              ? `Model: ${current.label}`
-              : `${current.label} — no key configured`
+            isAuto
+              ? "Auto — routes each message to the right tier"
+              : currentProviderHasKey
+                ? `Model: ${current!.label}`
+                : `${current!.label} — no key configured`
           }
         >
-          {current.label}
+          {isAuto ? "Auto" : current!.label}
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             size={11}
@@ -354,6 +362,42 @@ function ModelDropdown() {
             placeholder="Search models, providers, capabilities…"
             className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
           />
+        </div>
+
+        {/* Auto — pinned, always visible regardless of search/tab/provider filter */}
+        <div className="border-b border-border/70 p-1">
+          <DropdownMenuItem
+            className={cn(
+              "flex items-start gap-2 rounded-lg px-2 py-1.5 text-[12px]",
+              isAuto && "bg-accent/50",
+            )}
+            onSelect={() => {
+              if (sortedProviders.configured.length === 0) {
+                void openSettingsWindow("models");
+                return;
+              }
+              setSelected(AUTO_MODEL_ID);
+            }}
+          >
+            <HugeiconsIcon
+              icon={BrainIcon}
+              size={15}
+              strokeWidth={1.75}
+              className="mt-0.5 shrink-0 text-muted-foreground"
+            />
+            <span className="flex flex-1 flex-col">
+              <span className="flex items-center gap-1.5">
+                Auto
+                {isAuto && (
+                  <HugeiconsIcon icon={Tick01Icon} size={11} strokeWidth={2.5} />
+                )}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                Routes each message to a cheap, balanced, or strong model
+                automatically.
+              </span>
+            </span>
+          </DropdownMenuItem>
         </div>
 
         {/* Tabs */}

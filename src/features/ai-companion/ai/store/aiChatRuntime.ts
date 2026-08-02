@@ -1,15 +1,14 @@
+import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import { Chat, type UIMessage } from "@ai-sdk/react";
 import {
   type ChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
-import { getModel, providerNeedsKey, type ModelId } from "../config";
-import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
+import { AUTO_MODEL_ID, getModel, type ModelId, providerNeedsKey } from "../config";
 import { BUILTIN_AGENTS } from "../lib/agents";
-import { useAiAgentsStore } from "./aiAgentsStore";
-import { usePlanStore } from "./planStore";
 import { createContextAwareTransport } from "../lib/transport";
 import type { ToolContext } from "../tools/tools";
+import { useAiAgentsStore } from "./aiAgentsStore";
 import {
   chats,
   getActiveProviderKey,
@@ -17,6 +16,7 @@ import {
   touchChat,
   useAiChatStore,
 } from "./aiChatStore";
+import { usePlanStore } from "./planStore";
 
 function makeChat(sessionId: string): Chat<UIMessage> {
   const readCache = new Map<string, { size: number; hash: number }>();
@@ -59,21 +59,22 @@ function makeChat(sessionId: string): Chat<UIMessage> {
       };
     },
     getPlanMode: () => usePlanStore.getState().active,
-    getLmstudioBaseURL: () => usePreferencesStore.getState().lmstudioBaseURL,
-    getLmstudioModelId: () => usePreferencesStore.getState().lmstudioModelId,
-    getMlxBaseURL: () => usePreferencesStore.getState().mlxBaseURL,
-    getMlxModelId: () => usePreferencesStore.getState().mlxModelId,
-    getOllamaBaseURL: () => usePreferencesStore.getState().ollamaBaseURL,
-    getOllamaModelId: () => usePreferencesStore.getState().ollamaModelId,
-    getOpenaiCompatibleBaseURL: () =>
-      usePreferencesStore.getState().openaiCompatibleBaseURL,
-    getOpenaiCompatibleModelId: () =>
-      usePreferencesStore.getState().openaiCompatibleModelId,
-    getOpenaiCompatibleContextLimit: () =>
-      usePreferencesStore.getState().openaiCompatibleContextLimit,
-    getOpenrouterModelId: () =>
-      usePreferencesStore.getState().openrouterModelId,
-    getCustomEndpoints: () => usePreferencesStore.getState().customEndpoints,
+    getLocalProviderConfig: () => {
+      const p = usePreferencesStore.getState();
+      return {
+        lmstudioBaseURL: p.lmstudioBaseURL,
+        lmstudioModelId: p.lmstudioModelId,
+        mlxBaseURL: p.mlxBaseURL,
+        mlxModelId: p.mlxModelId,
+        ollamaBaseURL: p.ollamaBaseURL,
+        ollamaModelId: p.ollamaModelId,
+        openaiCompatibleBaseURL: p.openaiCompatibleBaseURL,
+        openaiCompatibleModelId: p.openaiCompatibleModelId,
+        openaiCompatibleContextLimit: p.openaiCompatibleContextLimit,
+        openrouterModelId: p.openrouterModelId,
+        customEndpoints: p.customEndpoints,
+      };
+    },
     getCustomEndpointKeys: () => useAiChatStore.getState().customEndpointKeys,
     onStep: (step) => {
       useAiChatStore.getState().patchAgentMeta({ step });
@@ -83,10 +84,15 @@ function makeChat(sessionId: string): Chat<UIMessage> {
         compactionNotice: { droppedCount: info.droppedCount, at: Date.now() },
       });
     },
+    getModelTiers: () => usePreferencesStore.getState().modelTiers,
     onFinishMeta: (info) => {
-      useAiChatStore.getState().patchAgentMeta({ hitStepCap: info.hitStepCap });
+      useAiChatStore.getState().patchAgentMeta({
+        hitStepCap: info.hitStepCap,
+        lastTurnModelId: info.modelId,
+        lastTurnAutoTier: info.autoTier,
+      });
     },
-    onUsage: (delta) => {
+    onUsage: (delta, modelId) => {
       const cur = useAiChatStore.getState().agentMeta.tokens;
       useAiChatStore.getState().patchAgentMeta({
         tokens: {
@@ -96,6 +102,14 @@ function makeChat(sessionId: string): Chat<UIMessage> {
         },
         lastInputTokens: delta.lastInputTokens,
         lastCachedTokens: delta.lastCachedTokens,
+      });
+      useAiChatStore.getState().appendTurnUsage({
+        modelId,
+        usage: {
+          inputTokens: delta.inputTokens,
+          outputTokens: delta.outputTokens,
+          cachedInputTokens: delta.cachedInputTokens,
+        },
       });
     },
   }) as unknown as ChatTransport<UIMessage>;
@@ -132,11 +146,10 @@ export async function sendMessage(text: string): Promise<boolean> {
   const state = useAiChatStore.getState();
   const sessionId = state.activeSessionId;
   if (!sessionId) return false;
-  if (
-    providerNeedsKey(getModel(state.selectedModelId as ModelId).provider) &&
-    !getActiveProviderKey()
-  )
-    return false;
+  const needsKeyCheck =
+    state.selectedModelId === AUTO_MODEL_ID ||
+    providerNeedsKey(getModel(state.selectedModelId as ModelId).provider);
+  if (needsKeyCheck && !getActiveProviderKey()) return false;
   const c = getOrCreateChat(sessionId);
   await c.sendMessage({ text });
   return true;

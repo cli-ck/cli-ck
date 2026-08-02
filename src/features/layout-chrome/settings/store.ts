@@ -11,6 +11,7 @@ import {
   type AutocompleteProviderId,
   type CustomEndpoint,
   type ModelId,
+  type ModelTier,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
 import type { KeyBinding, ShortcutId } from "@/features/layout-chrome/shortcuts/shortcuts";
@@ -152,6 +153,9 @@ export type Preferences = {
   groqSttModel: string;
   favoriteModelIds: string[];
   recentModelIds: string[];
+  /** User overrides for which model represents each tier. Unset tiers fall
+   *  back to auto-derivation (see deriveModelTier / resolveTierModel). */
+  modelTiers: Partial<Record<ModelTier, string>>;
   vimMode: boolean;
   editorWordWrap: boolean;
   showHidden: boolean;
@@ -202,6 +206,7 @@ const KEY_STT_PROVIDER = "sttProvider";
 const KEY_GROQ_STT_MODEL = "groqSttModel";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
+const KEY_MODEL_TIERS = "modelTiers";
 const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
@@ -269,6 +274,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   groqSttModel: "whisper-large-v3-turbo",
   favoriteModelIds: [],
   recentModelIds: [],
+  modelTiers: {},
   vimMode: false,
   editorWordWrap: false,
   showHidden: false,
@@ -403,6 +409,9 @@ export async function loadPreferences(): Promise<Preferences> {
     recentModelIds: (
       get<string[]>(KEY_RECENT_MODELS) ?? DEFAULT_PREFERENCES.recentModelIds
     ).filter(isKnownModelId),
+    modelTiers:
+      get<Partial<Record<ModelTier, string>>>(KEY_MODEL_TIERS) ??
+      DEFAULT_PREFERENCES.modelTiers,
     vimMode: get<boolean>(KEY_VIM_MODE) ?? DEFAULT_PREFERENCES.vimMode,
     editorWordWrap:
       get<boolean>(KEY_EDITOR_WORD_WRAP) ?? DEFAULT_PREFERENCES.editorWordWrap,
@@ -629,6 +638,12 @@ export async function setRecentModelIds(value: string[]): Promise<void> {
   await writePref(KEY_RECENT_MODELS, value);
 }
 
+export async function setModelTiers(
+  value: Partial<Record<ModelTier, string>>,
+): Promise<void> {
+  await writePref(KEY_MODEL_TIERS, value);
+}
+
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
 }
@@ -770,6 +785,7 @@ export async function onPreferencesChange(
     [KEY_GROQ_STT_MODEL]: "groqSttModel",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
+    [KEY_MODEL_TIERS]: "modelTiers",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",

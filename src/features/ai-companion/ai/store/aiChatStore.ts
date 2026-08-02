@@ -1,29 +1,32 @@
 import type { Chat, UIMessage } from "@ai-sdk/react";
 import { create } from "zustand";
 import {
+  AUTO_MODEL_ID,
   DEFAULT_MODEL_ID,
   endpointIdFromCompatModel,
   getModel,
   isCompatModelId,
-  providerNeedsKey,
   type ModelId,
+  type ModelTier,
   type ProviderId,
+  providerNeedsKey,
 } from "../config";
-import { useTodosStore } from "./todoStore";
 import type { AgentUsage } from "../lib/aiAgent";
-import { EMPTY_PROVIDER_KEYS, type ProviderKeys, type CustomEndpointKeys } from "../lib/keyring";
 import {
   deleteSessionData,
   deriveTitle,
   loadAll,
   loadMessages,
   newSessionId,
+  type SessionMeta,
   saveActiveId,
   saveMessages,
   saveSessionsList,
-  type SessionMeta,
 } from "../lib/aiSessions";
+import { type CustomEndpointKeys, EMPTY_PROVIDER_KEYS, type ProviderKeys } from "../lib/keyring";
 import { pushRecentModel } from "../lib/modelPrefs";
+import { availableModelsForTiers } from "../lib/modelTiers";
+import { useTodosStore } from "./todoStore";
 
 export type Live = {
   getCwd: () => string | null;
@@ -47,15 +50,26 @@ export type AgentRunStatus =
   | "awaiting-approval"
   | "error";
 
+export type TurnUsage = { modelId: string; usage: AgentUsage };
+
 export type AgentMeta = {
   status: AgentRunStatus;
   step: string | null;
   approvalsPending: number;
   error: string | null;
   tokens: AgentUsage;
+  /** Per-turn {modelId, usage} log for this session — lets cost/savings be
+   *  computed per model instead of assuming one model for the whole session
+   *  (Auto mode can run different turns on different models). */
+  turnUsage: TurnUsage[];
   lastInputTokens: number;
   lastCachedTokens: number;
   hitStepCap: boolean;
+  /** Model + tier the most recently finished turn actually ran on — null
+   *  tier means it wasn't Auto-routed. Powers the "retry with a stronger
+   *  model" offer when a turn hits the step cap under Auto mode. */
+  lastTurnModelId: string | null;
+  lastTurnAutoTier: ModelTier | null;
   compactionNotice: { droppedCount: number; at: number } | null;
 };
 
@@ -71,9 +85,12 @@ const IDLE_META: AgentMeta = {
   approvalsPending: 0,
   error: null,
   tokens: ZERO_USAGE,
+  turnUsage: [],
   lastInputTokens: 0,
   lastCachedTokens: 0,
   hitStepCap: false,
+  lastTurnModelId: null,
+  lastTurnAutoTier: null,
   compactionNotice: null,
 };
 
@@ -137,6 +154,7 @@ type StoreState = {
   agentMeta: AgentMeta;
   patchAgentMeta: (patch: Partial<AgentMeta>) => void;
   resetAgentMeta: () => void;
+  appendTurnUsage: (entry: TurnUsage) => void;
 
   // Sessions
   sessionsHydrated: boolean;
@@ -231,7 +249,8 @@ export const useAiChatStore = create<StoreState>((set, get) => ({
   selectedModelId: DEFAULT_MODEL_ID,
   setSelectedModelId: (id) => {
     set({ selectedModelId: id });
-    void pushRecentModel(id);
+    // "Auto" isn't a real model — never let it dilute the recents list.
+    if (id !== AUTO_MODEL_ID) void pushRecentModel(id);
   },
 
   mini: { open: false },
@@ -262,7 +281,7 @@ export const useAiChatStore = create<StoreState>((set, get) => ({
   attachSelection: (text, source) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const id = `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = `sel-${crypto.randomUUID()}`;
     set((s) => ({
       panelOpen: true,
       focusSignal: s.focusSignal + 1,
@@ -279,6 +298,13 @@ export const useAiChatStore = create<StoreState>((set, get) => ({
   patchAgentMeta: (patch) =>
     set((s) => ({ agentMeta: { ...s.agentMeta, ...patch } })),
   resetAgentMeta: () => set({ agentMeta: IDLE_META }),
+  appendTurnUsage: (entry) =>
+    set((s) => ({
+      agentMeta: {
+        ...s.agentMeta,
+        turnUsage: [...s.agentMeta.turnUsage, entry],
+      },
+    })),
 
   sessionsHydrated: false,
   sessions: [],
@@ -429,6 +455,11 @@ export function getAgentMeta(): AgentMeta {
 
 export function getActiveProviderKey(): string | null {
   const { selectedModelId, apiKeys, customEndpointKeys } = useAiChatStore.getState();
+  if (selectedModelId === AUTO_MODEL_ID) {
+    // No single provider key applies — Auto resolves per turn. Presence
+    // check is "is there any tier we can actually route to."
+    return availableModelsForTiers(apiKeys).length > 0 ? AUTO_MODEL_ID : null;
+  }
   if (isCompatModelId(selectedModelId)) {
     const eid = endpointIdFromCompatModel(selectedModelId);
     return customEndpointKeys[eid] ?? null;
@@ -438,6 +469,8 @@ export function getActiveProviderKey(): string | null {
 
 export function hasKeyForModel(modelId: string): boolean {
   const { apiKeys } = useAiChatStore.getState();
+  if (modelId === AUTO_MODEL_ID)
+    return availableModelsForTiers(apiKeys).length > 0;
   if (isCompatModelId(modelId)) {
     return true;
   }

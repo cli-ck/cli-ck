@@ -186,6 +186,21 @@ export type ModelInfo = {
   tags?: readonly ModelTag[];
 };
 
+/** Weight class used to route a task to a model that's actually sufficient
+ *  for it, rather than always the user's manually-selected model. */
+export type ModelTier = "light" | "standard" | "heavy";
+
+/** Derives a tier straight from the existing capability scores — no separate
+ *  classification data to maintain. Live-fetched models with no static entry
+ *  synthesize {intelligence:3, speed:3, cost:3} (see modelDiscovery.ts),
+ *  which lands them here in "standard". */
+export function deriveModelTier(m: ModelInfo): ModelTier {
+  const { intelligence, cost } = m.capabilities;
+  if (cost >= 4 && intelligence <= 3) return "light";
+  if (intelligence >= 5 && cost <= 2) return "heavy";
+  return "standard";
+}
+
 export const MODELS = [
   // ── OpenAI ────────────────────────────────────────────────────────────────
   {
@@ -617,7 +632,7 @@ export function isKnownModelId(id: string): id is ModelId {
   return MODELS.some((x) => x.id === id);
 }
 
-const FREEFORM_PROVIDERS: ReadonlySet<ProviderId> = new Set([
+export const FREEFORM_PROVIDERS: ReadonlySet<ProviderId> = new Set([
   "openrouter",
   "openai-compatible",
   "lmstudio",
@@ -631,6 +646,12 @@ export function modelKeepsReasoning(m: ModelInfo): boolean {
 }
 
 export const DEFAULT_MODEL_ID: ModelId = "gpt-5.4-mini";
+
+/** Sentinel `selectedModelId` value for Auto mode: each turn is classified
+ *  and routed to a tier-appropriate model instead of one fixed model. Never
+ *  passed to a provider SDK directly — resolved to a concrete model id
+ *  before every call (see lib/taskClassifier.ts + lib/modelTiers.ts). */
+export const AUTO_MODEL_ID = "auto";
 
 /** Approximate context window (in tokens) per model. Used for the
  *  context-usage indicator in the AI mini-window header. Conservative

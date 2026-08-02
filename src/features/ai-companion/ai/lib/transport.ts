@@ -1,9 +1,15 @@
 import type { UIMessage } from "@ai-sdk/react";
-import type { CustomEndpoint } from "../config";
-import { runAgentStream, type AgentUsageDelta } from "./aiAgent";
-import type { ProviderKeys, CustomEndpointKeys } from "./keyring";
-import { native } from "./native";
+import { AUTO_MODEL_ID, type CustomEndpoint, DEFAULT_MODEL_ID, type ModelTier } from "../config";
 import type { ToolContext } from "../tools/tools";
+import { type AgentUsageDelta, runAgentStream } from "./aiAgent";
+import type { CustomEndpointKeys, ProviderKeys } from "./keyring";
+import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
+import { native } from "./native";
+import {
+  classifyMessageTier,
+  findLastUserMessage,
+  lastMessageHasImage,
+} from "./taskClassifier";
 
 const OZ_MD_MAX_BYTES = 32 * 1024;
 type MemoryCacheEntry = { content: string | null; mtime: number };
@@ -39,29 +45,43 @@ type LiveSnapshot = {
   activeFile: string | null;
 };
 
+/** The local/freeform provider fields, all sourced from the same preferences
+ *  slice — bundled into one getter instead of one per field. */
+type LocalProviderConfig = {
+  lmstudioBaseURL?: string;
+  lmstudioModelId?: string;
+  mlxBaseURL?: string;
+  mlxModelId?: string;
+  ollamaBaseURL?: string;
+  ollamaModelId?: string;
+  openaiCompatibleBaseURL?: string;
+  openaiCompatibleModelId?: string;
+  openaiCompatibleContextLimit?: number;
+  openrouterModelId?: string;
+  customEndpoints?: readonly CustomEndpoint[];
+};
+
 type Deps = {
   getKeys: () => ProviderKeys;
   toolContext: ToolContext;
   getModelId: () => string;
+  getModelTiers?: () => Partial<Record<ModelTier, string>>;
   getCustomInstructions: () => string;
   getAgentPersona: () => { name: string; instructions: string } | null;
   getLive: () => LiveSnapshot;
-  getLmstudioBaseURL?: () => string | undefined;
-  getLmstudioModelId?: () => string | undefined;
-  getMlxBaseURL?: () => string | undefined;
-  getMlxModelId?: () => string | undefined;
-  getOllamaBaseURL?: () => string | undefined;
-  getOllamaModelId?: () => string | undefined;
-  getOpenaiCompatibleBaseURL?: () => string | undefined;
-  getOpenaiCompatibleModelId?: () => string | undefined;
-  getOpenaiCompatibleContextLimit?: () => number | undefined;
-  getOpenrouterModelId?: () => string | undefined;
-  getCustomEndpoints?: () => readonly CustomEndpoint[];
+  getLocalProviderConfig?: () => LocalProviderConfig;
   getCustomEndpointKeys?: () => CustomEndpointKeys;
   onStep?: (step: string | null) => void;
-  onUsage?: (delta: AgentUsageDelta) => void;
+  onUsage?: (delta: AgentUsageDelta, modelId: string) => void;
   onCompact?: (info: { droppedCount: number }) => void;
-  onFinishMeta?: (info: { hitStepCap: boolean; finishReason: string }) => void;
+  onFinishMeta?: (info: {
+    hitStepCap: boolean;
+    finishReason: string;
+    modelId: string;
+    /** Tier the turn was routed to under Auto mode; null when the user has a
+     *  specific model selected (no routing decision was made). */
+    autoTier: ModelTier | null;
+  }) => void;
   getPlanMode?: () => boolean;
 };
 
@@ -87,6 +107,27 @@ export function forwardStreamError(error: unknown): string {
   }
 }
 
+/** Resolves the Auto sentinel to a concrete model for this turn only —
+ *  classified from the outgoing message, never mutates the stored selection.
+ *  Returns the raw id unchanged when the user has a specific model selected. */
+function resolveEffectiveModelId(
+  rawModelId: string,
+  messages: readonly UIMessage[],
+  keys: ProviderKeys,
+  tierOverrides: Partial<Record<ModelTier, string>>,
+): { modelId: string; autoTier: ModelTier | null } {
+  if (rawModelId !== AUTO_MODEL_ID) {
+    return { modelId: rawModelId, autoTier: null };
+  }
+  const autoTier = classifyMessageTier(messages);
+  let available = availableModelsForTiers(keys);
+  if (lastMessageHasImage(messages)) {
+    available = available.filter((m) => m.tags?.includes("vision"));
+  }
+  const resolved = resolveTierModel(autoTier, available, tierOverrides);
+  return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier };
+}
+
 export function createContextAwareTransport(deps: Deps) {
   const run = async (options: SendOptions) => {
     const live = deps.getLive();
@@ -95,27 +136,27 @@ export function createContextAwareTransport(deps: Deps) {
     const messagesForRun = envBlock
       ? injectEnvIntoLastUser(options.messages, envBlock)
       : options.messages;
+    const { modelId, autoTier } = resolveEffectiveModelId(
+      deps.getModelId(),
+      messagesForRun,
+      deps.getKeys(),
+      deps.getModelTiers?.() ?? {},
+    );
     const result = await runAgentStream({
       keys: deps.getKeys(),
-      modelId: deps.getModelId(),
+      modelId,
       customInstructions: deps.getCustomInstructions(),
       agentPersona: deps.getAgentPersona(),
       toolContext: deps.toolContext,
       onStep: deps.onStep,
-      onUsage: deps.onUsage,
+      onUsage: deps.onUsage
+        ? (delta) => deps.onUsage?.(delta, modelId)
+        : undefined,
       onCompact: deps.onCompact,
-      onFinishMeta: deps.onFinishMeta,
-      lmstudioBaseURL: deps.getLmstudioBaseURL?.(),
-      lmstudioModelId: deps.getLmstudioModelId?.(),
-      mlxBaseURL: deps.getMlxBaseURL?.(),
-      mlxModelId: deps.getMlxModelId?.(),
-      ollamaBaseURL: deps.getOllamaBaseURL?.(),
-      ollamaModelId: deps.getOllamaModelId?.(),
-      openaiCompatibleBaseURL: deps.getOpenaiCompatibleBaseURL?.(),
-      openaiCompatibleModelId: deps.getOpenaiCompatibleModelId?.(),
-      openaiCompatibleContextLimit: deps.getOpenaiCompatibleContextLimit?.(),
-      openrouterModelId: deps.getOpenrouterModelId?.(),
-      customEndpoints: deps.getCustomEndpoints?.(),
+      onFinishMeta: deps.onFinishMeta
+        ? (info) => deps.onFinishMeta?.({ ...info, modelId, autoTier })
+        : undefined,
+      ...deps.getLocalProviderConfig?.(),
       customEndpointKeys: deps.getCustomEndpointKeys?.(),
       planMode: deps.getPlanMode?.(),
       projectMemory,
@@ -144,30 +185,28 @@ function injectEnvIntoLastUser(
   messages: UIMessage[],
   envBlock: string,
 ): UIMessage[] {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role !== "user") continue;
-    const parts = m.parts as ReadonlyArray<{ type: string; text?: string }>;
-    let textIdx = -1;
-    for (let j = 0; j < parts.length; j++) {
-      if (parts[j].type === "text") {
-        textIdx = j;
-        break;
-      }
+  const found = findLastUserMessage(messages);
+  if (!found) return messages;
+  const { message: m, index: i } = found;
+  const parts = m.parts as ReadonlyArray<{ type: string; text?: string }>;
+  let textIdx = -1;
+  for (let j = 0; j < parts.length; j++) {
+    if (parts[j].type === "text") {
+      textIdx = j;
+      break;
     }
-    const nextParts =
-      textIdx === -1
-        ? [{ type: "text", text: envBlock }, ...parts]
-        : parts.map((p, idx) =>
-            idx === textIdx
-              ? { ...p, text: `${envBlock}\n\n${p.text ?? ""}` }
-              : p,
-          );
-    const out = messages.slice();
-    out[i] = { ...m, parts: nextParts } as UIMessage;
-    return out;
   }
-  return messages;
+  const nextParts =
+    textIdx === -1
+      ? [{ type: "text", text: envBlock }, ...parts]
+      : parts.map((p, idx) =>
+          idx === textIdx
+            ? { ...p, text: `${envBlock}\n\n${p.text ?? ""}` }
+            : p,
+        );
+  const out = messages.slice();
+  out[i] = { ...m, parts: nextParts } as UIMessage;
+  return out;
 }
 
 function formatEnvBlock(live: LiveSnapshot): string | null {
