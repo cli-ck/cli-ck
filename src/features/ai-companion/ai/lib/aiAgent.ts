@@ -26,7 +26,23 @@ import {
 import { buildTools, type ToolContext } from "../tools/tools";
 import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys, CustomEndpointKeys } from "./keyring";
+import { findLiveModel } from "./modelDiscovery";
 import { createProxyFetch } from "./proxyFetch";
+
+/** resolveModel only knows the static MODELS catalog; a model chosen from a
+ *  provider's live-fetched list needs the same-shaped fallback here too. */
+function resolveModelWithLiveFallback(
+  modelId: string,
+  endpoints: readonly CustomEndpoint[],
+) {
+  try {
+    return resolveModel(modelId, endpoints);
+  } catch (e) {
+    const live = findLiveModel(modelId);
+    if (live) return live;
+    throw e;
+  }
+}
 
 const localProxyFetch = createProxyFetch({ allowPrivateNetwork: true });
 
@@ -252,7 +268,7 @@ export function buildConfiguredLanguageModel(
       local.customEndpointKeys?.[eid],
     );
   }
-  const m = resolveModel(modelId);
+  const m = resolveModelWithLiveFallback(modelId, []);
   let resolvedId: string = m.id;
   if (m.id === "lmstudio-local") {
     if (!local.lmstudioModelId?.trim()) {
@@ -404,7 +420,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
     customEndpointKeys: opts.customEndpointKeys,
   });
   const endpoints = opts.customEndpoints ?? [];
-  const info = resolveModel(modelId, endpoints);
+  const info = resolveModelWithLiveFallback(modelId, endpoints);
   const provider = info.provider;
 
   const stableSystem = buildStableSystem(

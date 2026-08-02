@@ -20,10 +20,6 @@ function pickMime(): string | undefined {
   return undefined;
 }
 
-function providerNeedsKey(provider: SttProvider): boolean {
-  return provider !== "whispercpp";
-}
-
 function getApiKeyForStt(
   apiKeys: import("../lib/keyring").ProviderKeys,
   provider: SttProvider,
@@ -43,15 +39,13 @@ export function useWhisperRecording({
   const apiKeys = useAiChatStore((s) => s.apiKeys);
   const sttProvider = usePreferencesStore((s) => s.sttProvider);
   const groqSttModel = usePreferencesStore((s) => s.groqSttModel);
-  const whispercppBaseURL = usePreferencesStore((s) => s.whispercppBaseURL);
   const [state, setState] = useState<State>("idle");
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const needsKey = providerNeedsKey(sttProvider);
-  const providerKey = needsKey ? getApiKeyForStt(apiKeys, sttProvider) : null;
-  const hasKey = needsKey ? !!providerKey : true;
+  const providerKey = getApiKeyForStt(apiKeys, sttProvider);
+  const hasKey = !!providerKey;
 
   const supported =
     typeof navigator !== "undefined" &&
@@ -60,7 +54,6 @@ export function useWhisperRecording({
 
   const sttOptions: SttOptions = {
     groqSttModel,
-    whispercppBaseURL,
   };
 
   const teardownStream = () => {
