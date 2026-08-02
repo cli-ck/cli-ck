@@ -41,22 +41,28 @@ import {
   Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   compatModelIdForEndpoint,
+  DEFAULT_MODEL_ID,
   getCompatModelInfo,
   getModel,
   isCompatModelId,
-  MODELS,
+  isKnownModelId,
   providerNeedsKey,
   PROVIDERS,
   STT_PROVIDER_LABELS,
   type ModelCapabilities,
-  type ModelId,
   type ModelInfo,
   type ProviderId,
 } from "../config";
 import { ACCEPTED_FILES, useComposer } from "../lib/aiComposer";
+import {
+  CATALOG_PROVIDERS,
+  findLiveModel,
+  useAllEffectiveModels,
+  useModelCatalogStore,
+} from "../lib/modelDiscovery";
 import { toggleFavoriteModel } from "../lib/modelPrefs";
 import { useAiChatStore } from "../store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
@@ -217,7 +223,9 @@ function ModelDropdown() {
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
   const current = isCompatModelId(selected)
     ? getCompatModelInfo(selected, customEndpoints)
-    : getModel(selected as ModelId);
+    : isKnownModelId(selected)
+      ? getModel(selected)
+      : (findLiveModel(selected) ?? getModel(DEFAULT_MODEL_ID));
   const [search, setSearch] = useState("");
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
@@ -248,9 +256,18 @@ function ModelDropdown() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKeys]);
 
+  const effectiveModels = useAllEffectiveModels();
+  const refreshCatalog = useModelCatalogStore((s) => s.refresh);
+
+  useEffect(() => {
+    for (const id of CATALOG_PROVIDERS) {
+      if (!providerNeedsKey(id) || apiKeys[id]) void refreshCatalog(id, apiKeys[id]);
+    }
+  }, [apiKeys, refreshCatalog]);
+
   const allModels = useMemo(
-    () => [...MODELS, ...epModelInfos],
-    [epModelInfos],
+    () => [...effectiveModels, ...epModelInfos],
+    [effectiveModels, epModelInfos],
   );
 
   const COMPAT_PROVIDER_ID = "__compat__";

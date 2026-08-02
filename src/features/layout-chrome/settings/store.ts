@@ -8,7 +8,6 @@ import {
   OLLAMA_DEFAULT_BASE_URL,
   migrateLegacyCompatEndpoint,
   OPENAI_COMPATIBLE_DEFAULT_BASE_URL,
-  WHISPERCPP_DEFAULT_BASE_URL,
   type AutocompleteProviderId,
   type CustomEndpoint,
   type ModelId,
@@ -151,7 +150,6 @@ export type Preferences = {
   openrouterModelId: string;
   sttProvider: SttProvider;
   groqSttModel: string;
-  whispercppBaseURL: string;
   favoriteModelIds: string[];
   recentModelIds: string[];
   vimMode: boolean;
@@ -202,7 +200,6 @@ const KEY_CUSTOM_ENDPOINTS = "customEndpoints";
 const KEY_OPENROUTER_MODEL_ID = "openrouterModelId";
 const KEY_STT_PROVIDER = "sttProvider";
 const KEY_GROQ_STT_MODEL = "groqSttModel";
-const KEY_WHISPERCPP_BASE_URL = "whispercppBaseURL";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_VIM_MODE = "vimMode";
@@ -270,7 +267,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   openrouterModelId: "",
   sttProvider: DEFAULT_STT_PROVIDER,
   groqSttModel: "whisper-large-v3-turbo",
-  whispercppBaseURL: WHISPERCPP_DEFAULT_BASE_URL,
   favoriteModelIds: [],
   recentModelIds: [],
   vimMode: false,
@@ -400,8 +396,6 @@ export async function loadPreferences(): Promise<Preferences> {
       get<SttProvider>(KEY_STT_PROVIDER) ?? DEFAULT_PREFERENCES.sttProvider,
     groqSttModel:
       get<string>(KEY_GROQ_STT_MODEL) ?? DEFAULT_PREFERENCES.groqSttModel,
-    whispercppBaseURL:
-      get<string>(KEY_WHISPERCPP_BASE_URL) ?? DEFAULT_PREFERENCES.whispercppBaseURL,
     favoriteModelIds: (
       get<string[]>(KEY_FAVORITE_MODELS) ??
       DEFAULT_PREFERENCES.favoriteModelIds
@@ -627,10 +621,6 @@ export async function setGroqSttModel(value: string): Promise<void> {
   await writePref(KEY_GROQ_STT_MODEL, value.trim());
 }
 
-export async function setWhispercppBaseURL(value: string): Promise<void> {
-  await writePref(KEY_WHISPERCPP_BASE_URL, value.trim());
-}
-
 export async function setFavoriteModelIds(value: string[]): Promise<void> {
   await writePref(KEY_FAVORITE_MODELS, value);
 }
@@ -778,7 +768,6 @@ export async function onPreferencesChange(
     [KEY_OPENROUTER_MODEL_ID]: "openrouterModelId",
     [KEY_STT_PROVIDER]: "sttProvider",
     [KEY_GROQ_STT_MODEL]: "groqSttModel",
-    [KEY_WHISPERCPP_BASE_URL]: "whispercppBaseURL",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_VIM_MODE]: "vimMode",
