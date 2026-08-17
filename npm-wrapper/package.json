@@ -1,10 +1,10 @@
 {
-  "name": "@codecollab.co/oz",
+  "name": "@codecollab.co/cli-ck",
   "version": "0.2.5",
-  "description": "Oz — an open-source AI-native terminal emulator CLI launcher",
-  "main": "bin/oz.js",
+  "description": "cli-ck — an open-source AI-native terminal emulator CLI launcher",
+  "main": "bin/cli-ck.js",
   "bin": {
-    "oz": "bin/oz.js"
+    "cli-ck": "bin/cli-ck.js"
   },
   "publishConfig": {
     "access": "public"
@@ -15,7 +15,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codecollab-co/oz.git"
+    "url": "git+https://github.com/cli-ck/cli-ck.git"
   },
   "keywords": [
     "terminal",
