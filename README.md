@@ -10,6 +10,9 @@
       <img src="https://img.shields.io/npm/v/@codecollab.co/cli-ck?label=npm&color=blue" alt="npm" />
     </a>
     <img src="https://img.shields.io/github/downloads/cli-ck/cli-ck/total?label=github%20downloads&color=blue" alt="github downloads" />
+    <a href="https://www.npmjs.com/package/@codecollab.co/cli-ck" target="_blank">
+      <img src="https://img.shields.io/npm/dt/@codecollab.co%2Fcli-ck?label=npm%20downloads&color=blue" alt="npm downloads" />
+    </a>
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="platform" />
   </p>
 
@@ -152,11 +155,13 @@ cli-ck is **not code-signed or notarized yet** (no paid Apple/Windows certificat
 ## Build from source
 
 **Prerequisites**
+
 - Rust (stable), https://rustup.rs
 - Node 20+ and [pnpm](https://pnpm.io)
 - Tauri prerequisites for your platform, https://tauri.app/start/prerequisites/
 
 **Run**
+
 ```bash
 pnpm install
 pnpm tauri dev          # development
@@ -164,6 +169,7 @@ pnpm tauri build        # production bundle
 ```
 
 **Checks**
+
 ```bash
 pnpm exec tsc --noEmit                                            # frontend type-check
 cd src-tauri && cargo clippy --all-targets --locked -D warnings   # Rust lint (matches CI)
