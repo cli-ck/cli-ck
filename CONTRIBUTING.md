@@ -1,12 +1,12 @@
-# Contributing to Oz
+# Contributing to cli-ck
 
-Oz is a solo-maintained project with a strong product direction. Contributions are welcome, but **alignment matters more than volume**.
+cli-ck is a solo-maintained project with a strong product direction. Contributions are welcome, but **alignment matters more than volume**.
 
 This document helps you decide *whether* and *how* to contribute in a way that's likely to get merged, so neither of us wastes time.
 
 ## How this project is run
 
-- Oz is maintained by the codecollab-co organization.
+- cli-ck is maintained by the codecollab-co organization.
 
 ## Where to discuss
 
@@ -56,7 +56,7 @@ A 10-minute conversation saves a 500-line PR that doesn't fit the roadmap.
 
 ## Quality bar
 
-Oz positions itself as **lightweight, fast, production-grade**. Every PR is reviewed against:
+cli-ck positions itself as **lightweight, fast, production-grade**. Every PR is reviewed against:
 
 - `pnpm exec tsc --noEmit` clean
 - `cargo clippy` clean, `cargo fmt` applied
@@ -70,7 +70,7 @@ If you're not sure how to measure perf or what counts as a hot path, ask in Disc
 
 ## Changes to core subsystems require a test
 
-The most common way a PR breaks Oz is a **local fix with global blast radius**: the diff solves one reported case, reads fine, passes type-check and clippy, and silently breaks the same subsystem in every other case. Review alone does not catch these. A test does.
+The most common way a PR breaks cli-ck is a **local fix with global blast radius**: the diff solves one reported case, reads fine, passes type-check and clippy, and silently breaks the same subsystem in every other case. Review alone does not catch these. A test does.
 
 So if your change touches behavior in any of these load-bearing paths, the PR must add or extend a test that locks the invariant you're relying on:
 
@@ -85,11 +85,11 @@ The bar for the test is real coverage of the contract, not a placeholder. Test t
 
 UI rendering, themes, syntax-highlight tables, and anything the type-checker already guarantees do not need tests.
 
-## What Oz is not
+## What cli-ck is not
 
 To set expectations:
 
-- Oz is not trying to be a full IDE replacement (VS Code, Cursor, Zed).
+- cli-ck is not trying to be a full IDE replacement (VS Code, Cursor, Zed).
 - Not building: full LSP support, Jupyter notebooks, integrated debugger UI, package manager UI, full web browser.
 - This is not a curated "first open-source contribution" project. Beginners are welcome but expect normal review.
 - Mechanical refactors, broad style changes, drive-by rewrites are not helpful.
@@ -190,7 +190,7 @@ src/
 
 The version string lives in five places (`package.json`,
 `npm-wrapper/package.json`, `src-tauri/Cargo.toml`,
-`src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`'s own `oz` entry) -
+`src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`'s own `cli-ck` entry) -
 missing one leaves the app internally inconsistent (a real past instance:
 Settings' "Build" field carried a hand-typed version string that quietly
 drifted stale across several releases). Always bump all five together via:
@@ -199,8 +199,8 @@ drifted stale across several releases). Always bump all five together via:
 node scripts/bump-version.mjs 0.2.5
 ```
 
-This updates the first four and regenerates `Cargo.lock`'s `oz` entry via
-`cargo check` (review that diff - it should touch only the `oz` package's
+This updates the first four and regenerates `Cargo.lock`'s `cli-ck` entry via
+`cargo check` (review that diff - it should touch only the `cli-ck` package's
 own version, nothing else). Then:
 
 1. Add the new version's entry to `CHANGELOG.md` (own PR or same commit).

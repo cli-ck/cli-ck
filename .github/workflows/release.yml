@@ -116,7 +116,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Oz ${{ github.ref_name }}"
+          releaseName: "cli-ck ${{ github.ref_name }}"
           releaseBody: "See the assets to download and install. Auto-update is built in."
           releaseDraft: true
           prerelease: false
@@ -126,7 +126,7 @@ jobs:
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          Compress-Archive -Path src-tauri/target/release/oz.exe -DestinationPath src-tauri/target/release/oz_windows_x64.zip
+          Compress-Archive -Path src-tauri/target/release/cli-ck.exe -DestinationPath src-tauri/target/release/oz_windows_x64.zip
           gh release upload ${{ github.ref_name }} src-tauri/target/release/oz_windows_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -134,7 +134,7 @@ jobs:
       - name: Zip release binary (Linux)
         if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
         run: |
-          zip -j src-tauri/target/release/oz_linux_x64.zip src-tauri/target/release/oz
+          zip -j src-tauri/target/release/oz_linux_x64.zip src-tauri/target/release/cli-ck
           gh release upload ${{ github.ref_name }} src-tauri/target/release/oz_linux_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -194,8 +194,8 @@ jobs:
             test ! -e "squashfs-root/usr/lib/$lib" \
               || { echo "lib still present after repack: $lib"; exit 1; }
           done
-          test -x squashfs-root/usr/bin/oz \
-            || { echo "oz binary missing from repacked AppImage"; exit 1; }
+          test -x squashfs-root/usr/bin/cli-ck \
+            || { echo "cli-ck binary missing from repacked AppImage"; exit 1; }
           popd >/dev/null
 
           cp "$WORK/$BASENAME" "$APPIMAGE"

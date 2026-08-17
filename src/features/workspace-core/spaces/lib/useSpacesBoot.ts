@@ -108,7 +108,7 @@ export function useSpacesBoot({
         const activeTab = inActive[idx] ?? inActive[0] ?? restored[0];
         replaceTabs(restored, activeTab.id);
       } catch (e) {
-        console.error("[oz] spaces boot failed:", e);
+        console.error("[cli-ck] spaces boot failed:", e);
       } finally {
         markBooted();
       }

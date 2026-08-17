@@ -142,7 +142,7 @@ pub fn spawn(
 
     let session_reader = session.clone();
     let reader_thread = thread::Builder::new()
-        .name(format!("oz-lsp-reader-{id}"))
+        .name(format!("cli-ck-lsp-reader-{id}"))
         .spawn(move || {
             let mut decoder = FrameDecoder::default();
             let mut buf = [0u8; READ_BUF];
@@ -183,7 +183,7 @@ pub fn spawn(
         Arc::new(Mutex::new(std::collections::VecDeque::new()));
     let stderr_tail_w = stderr_tail.clone();
     thread::Builder::new()
-        .name(format!("oz-lsp-stderr-{id}"))
+        .name(format!("cli-ck-lsp-stderr-{id}"))
         .spawn(move || {
             let mut buf = [0u8; 4096];
             let mut line: Vec<u8> = Vec::new();
@@ -229,7 +229,7 @@ pub fn spawn(
         let exited_m = exited.clone();
         let reason_w = kill_reason.clone();
         thread::Builder::new()
-            .name(format!("oz-lsp-memwatch-{id}"))
+            .name(format!("cli-ck-lsp-memwatch-{id}"))
             .spawn(move || {
                 let grace_deadline = Instant::now() + MEM_STARTUP_GRACE;
                 while Instant::now() < grace_deadline {
@@ -269,7 +269,7 @@ pub fn spawn(
     let child_waiter = child;
     let exited_w = exited;
     thread::Builder::new()
-        .name(format!("oz-lsp-waiter-{id}"))
+        .name(format!("cli-ck-lsp-waiter-{id}"))
         .spawn(move || {
             let code = match child_waiter.wait() {
                 Ok(status) => status.code(),

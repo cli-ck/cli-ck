@@ -4,7 +4,7 @@
 // Settings "Build" field's platform-detection code carried a hand-typed
 // version string that drifted stale across several real releases, since
 // nothing kept it in sync - see AboutSection.tsx's fix in the same
-// change that introduced this script). Cargo.lock's own `oz` entry is
+// change that introduced this script). Cargo.lock's own `cli-ck` entry is
 // regenerated afterward via `cargo check`, not hand-edited, since it must
 // stay exactly consistent with Cargo.toml for CI's `--locked` builds to
 // accept it.
@@ -63,12 +63,12 @@ replaceOnce(
   "Cargo.toml [package] version",
 );
 
-console.log("regenerating Cargo.lock's own `oz` entry (cargo check, not --locked)...");
+console.log("regenerating Cargo.lock's own `cli-ck` entry (cargo check, not --locked)...");
 execFileSync("cargo", ["check", "--quiet"], {
   cwd: path.join(repoRoot, "src-tauri"),
   stdio: "inherit",
 });
 
 console.log(`\nDone. Now review the diff (especially src-tauri/Cargo.lock - it should` +
-  ` only touch the "oz" package's own version, nothing else), update CHANGELOG.md` +
+  ` only touch the "cli-ck" package's own version, nothing else), update CHANGELOG.md` +
   ` if you haven't already, and commit as "chore(release): v${version}".`);

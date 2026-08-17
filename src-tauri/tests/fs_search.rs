@@ -1,9 +1,9 @@
 mod common;
 
 use common::{git_available, FsFixture, GitRepoFixture};
-use oz_lib::modules::fs::grep::{fs_glob, fs_grep};
-use oz_lib::modules::fs::search::{fs_list_files, fs_search};
-use oz_lib::modules::fs::tree::{fs_read_dir, list_subdirs, EntryKind};
+use cli_ck_lib::modules::fs::grep::{fs_glob, fs_grep};
+use cli_ck_lib::modules::fs::search::{fs_list_files, fs_search};
+use cli_ck_lib::modules::fs::tree::{fs_read_dir, list_subdirs, EntryKind};
 
 #[test]
 fn grep_finds_matches_and_returns_relative_paths() {

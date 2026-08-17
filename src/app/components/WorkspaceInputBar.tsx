@@ -26,7 +26,7 @@ const AiCompComposerInput = lazy(() =>
   })),
 );
 
-export const TOGGLE_BLOCK_INPUT_EVENT = "oz:toggle-block-input";
+export const TOGGLE_BLOCK_INPUT_EVENT = "cli-ck:toggle-block-input";
 
 type Props = {
   isBlockTab: boolean;
@@ -187,7 +187,7 @@ export function WorkspaceInputBar({
     <div
       data-ai-input-bar
       data-state={open ? "open" : "closed"}
-      className="oz-reveal"
+      className="cli-ck-reveal"
       aria-hidden={!open}
     >
       <div>{content}</div>

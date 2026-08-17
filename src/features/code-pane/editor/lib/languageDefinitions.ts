@@ -436,8 +436,8 @@ export const LANGUAGES: LanguageDefinition[] = [
       ),
   },
   {
-    name: "Oz Theme",
-    extensions: ["oz-theme"],
+    name: "cli-ck Theme",
+    extensions: ["cli-ck-theme"],
     loader: async () => {
       const [{ json }, { colorSwatches }] = await Promise.all([
         import("@codemirror/lang-json"),

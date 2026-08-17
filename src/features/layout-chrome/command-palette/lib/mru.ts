@@ -1,7 +1,7 @@
 // Non-critical, single-window usage ranking. localStorage keeps it off the
 // preferences store and its IPC change-broadcast path.
 
-const KEY = "oz-palette-mru";
+const KEY = "cli-ck-palette-mru";
 const MAX_ENTRIES = 120;
 
 type MruMap = Record<string, number>;

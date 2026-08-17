@@ -209,7 +209,7 @@ export function AiChatView({
       <Conversation>
         <ConversationContent>
           <ConversationEmptyState
-            title="Ask Oz anything"
+            title="Ask cli-ck anything"
             description="Explain command output, fix errors, generate snippets, or run a task."
           />
         </ConversationContent>
@@ -521,7 +521,7 @@ const ReadGroup = memo(function ReadGroup({ parts }: { parts: AnyPart[] }) {
           </span>
         ) : null}
       </CollapsibleTrigger>
-      <CollapsibleContent className="oz-collapsible-content border-t border-border/30">
+      <CollapsibleContent className="cli-ck-collapsible-content border-t border-border/30">
         <ul className="flex flex-col gap-0.5 px-2 py-1.5">
           {paths.map((path) => (
             <li

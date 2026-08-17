@@ -82,7 +82,7 @@ export function useExplorerFileDrop({ rootPath, isDir, onCopied }: Options) {
         if (disposed) fn();
         else unlisten = fn;
       })
-      .catch((err) => console.error("[oz] explorer drop listen failed:", err));
+      .catch((err) => console.error("[cli-ck] explorer drop listen failed:", err));
 
     return () => {
       disposed = true;

@@ -28,7 +28,7 @@ const ShimmerComponent = ({
     Component,
     {
       className: cn(
-        "oz-shimmer relative inline-block bg-clip-text text-transparent",
+        "cli-ck-shimmer relative inline-block bg-clip-text text-transparent",
         className
       ),
       style: {

@@ -408,7 +408,7 @@ export function AgentDetailsDialog({
             </pre>
             {agent?.builtIn ? (
               <span className="text-[10px] text-muted-foreground">
-                Built-in agents are read-only. Appended to Oz's core system
+                Built-in agents are read-only. Appended to cli-ck's core system
                 prompt when active.
               </span>
             ) : null}
@@ -513,7 +513,7 @@ function AgentEditorDialog({
               onChange={(e) =>
                 setDraft({ ...draft, instructions: e.target.value })
               }
-              placeholder="Persona & rules. Appended to Oz's core system prompt."
+              placeholder="Persona & rules. Appended to cli-ck's core system prompt."
               className="min-h-40 resize-y text-[12px] leading-relaxed"
             />
           </div>

@@ -1,4 +1,4 @@
-# oz-shell-integration (bashrc)
+# cli-ck-shell-integration (bashrc)
 #
 # Differences vs zsh integration:
 # - We emulate login-shell init manually (/etc/profile, profile files) because

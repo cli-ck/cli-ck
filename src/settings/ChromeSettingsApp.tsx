@@ -70,7 +70,7 @@ export function ChromeSettingsApp() {
       }
     };
     const unlistenPromise = getCurrentWebviewWindow().listen<string>(
-      "oz:settings-tab",
+      "cli-ck:settings-tab",
       (e) => apply(e.payload),
     );
     return () => {

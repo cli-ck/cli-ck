@@ -118,7 +118,7 @@ export function CommandPalette({
     setQuery(initialMode === "content" ? "#" : "");
     setPage("root");
     const handle = window.setTimeout(() => {
-      document.getElementById("oz-command-palette-input")?.focus();
+      document.getElementById("cli-ck-command-palette-input")?.focus();
     }, 0);
     return () => window.clearTimeout(handle);
   }, [open, initialMode]);
@@ -226,7 +226,7 @@ export function CommandPalette({
         onKeyDown={onKeyDown}
       >
         <CommandInput
-          id="oz-command-palette-input"
+          id="cli-ck-command-palette-input"
           value={query}
           onValueChange={setQuery}
           placeholder={placeholder}

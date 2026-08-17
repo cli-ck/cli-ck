@@ -1,4 +1,4 @@
-# oz-shell-integration (PowerShell)
+# cli-ck-shell-integration (PowerShell)
 # Emits OSC 7 (cwd) + OSC 133 A/B/C/D so the host tracks cwd and prompt
 # boundaries. C comes from a PSConsoleHostReadLine wrapper (PowerShell has no
 # preexec hook).

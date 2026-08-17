@@ -4,7 +4,7 @@ import {
   RoboticIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { OzLogo } from "@/components/OzLogo";
+import { CliCkLogo } from "@/components/CliCkLogo";
 
 function iconFor(agent: string): IconSvgElement {
   const a = agent.toLowerCase();
@@ -23,9 +23,9 @@ export function AgentIcon({
   size?: number;
   className?: string;
 }) {
-  if (agent.toLowerCase().includes("oz")) {
+  if (agent.toLowerCase().includes("cli-ck")) {
     return (
-      <OzLogo size={size} className={className} />
+      <CliCkLogo size={size} className={className} />
     );
   }
   return (

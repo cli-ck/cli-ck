@@ -221,7 +221,7 @@ mod tests {
 
         let target = dir.path().join("note.txt");
         // Pre-stage a symlink at the legacy deterministic staging path.
-        let legacy = dir.path().join(".note.txt.oz.tmp");
+        let legacy = dir.path().join(".note.txt.cli-ck.tmp");
         symlink(&outside, &legacy).unwrap();
 
         write_atomic(&target, b"payload").unwrap();

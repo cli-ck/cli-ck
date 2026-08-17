@@ -11,8 +11,8 @@ import type { SidebarViewId } from "./types";
 export const SIDEBAR_DEFAULT_WIDTH = 260;
 export const SIDEBAR_MIN_WIDTH = 220;
 export const SIDEBAR_MAX_WIDTH = 480;
-const SIDEBAR_WIDTH_STORAGE_KEY = "oz.sidebar.width";
-const SIDEBAR_VIEW_STORAGE_KEY = "oz.sidebar.view";
+const SIDEBAR_WIDTH_STORAGE_KEY = "cli-ck.sidebar.width";
+const SIDEBAR_VIEW_STORAGE_KEY = "cli-ck.sidebar.view";
 
 function clampSidebarWidth(width: number): number {
   return Math.min(

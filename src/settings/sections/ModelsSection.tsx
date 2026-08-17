@@ -346,7 +346,7 @@ export function ModelsSection() {
     <div className="flex flex-col gap-7">
       <SectionHeader
         title="Models"
-        description="Connect the providers you use. Keys live in your OS keychain and are used only by Oz."
+        description="Connect the providers you use. Keys live in your OS keychain and are used only by cli-ck."
       />
 
       <DefaultsBlock
@@ -1476,7 +1476,7 @@ function VoiceBlock({ keys }: { keys: KeysMap }) {
             </FieldRow>
             <StatusLine status={cppStatus} />
             <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-              Oz doesn't bundle Whisper.cpp — run your own server (loopback
+              cli-ck doesn't bundle Whisper.cpp — run your own server (loopback
               only). It appears as a voice option once it's reachable.
             </p>
           </div>

@@ -8,8 +8,8 @@ import { arch, platform } from "@tauri-apps/plugin-os";
 import { useEffect, useState } from "react";
 import { SectionHeader } from "../components/SectionHeader";
 
-const REPO_URL = "https://github.com/codecollab-co/oz";
-const WEBSITE_URL = "https://codecollab-co.github.io/oz-website/";
+const REPO_URL = "https://github.com/cli-ck/cli-ck";
+const WEBSITE_URL = "https://cli-ck.github.io/cli-ck-website/";
 
 const PLATFORM_LABEL: Record<string, string> = {
   macos: "macOS",
@@ -22,7 +22,7 @@ const PLATFORM_LABEL: Record<string, string> = {
 
 export function AboutSection() {
   const [version, setVersion] = useState("");
-  const [name, setName] = useState("Oz");
+  const [name, setName] = useState("cli-ck");
   const [build, setBuild] = useState("");
   const { status, check, install } = useUpdater({ autoCheck: false });
   const checking = status.kind === "checking";
@@ -75,7 +75,7 @@ export function AboutSection() {
       <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-card/60 p-5">
         <img
           src="/logo.png"
-          alt="Oz"
+          alt="cli-ck"
           className="size-12 rounded-xl"
           draggable={false}
         />
@@ -97,7 +97,7 @@ export function AboutSection() {
         <dd className="font-mono text-[11.5px]">{build || `v${version}`}</dd>
 
         <dt className="text-muted-foreground">Bundle ID</dt>
-        <dd className="font-mono text-[11.5px]">app.codecollab-co.oz</dd>
+        <dd className="font-mono text-[11.5px]">app.cli-ck.cli-ck</dd>
 
         <dt className="text-muted-foreground">License</dt>
         <dd>Apache 2.0</dd>
@@ -110,7 +110,7 @@ export function AboutSection() {
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
             <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={1.75} />
-            codecollab-co/oz
+            cli-ck/cli-ck
           </button>
         </dd>
         <dt className="text-muted-foreground">Website</dt>
@@ -121,7 +121,7 @@ export function AboutSection() {
             className="inline-flex items-center gap-1.5 rounded-md text-[12px] underline-offset-2 hover:text-foreground hover:underline"
           >
             <HugeiconsIcon icon={Globe02Icon} size={12} strokeWidth={1.75} />
-            codecollab-co.github.io/oz-website
+            cli-ck.github.io/cli-ck-website
           </button>
         </dd>
       </dl>

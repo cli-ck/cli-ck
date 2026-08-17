@@ -2,11 +2,11 @@ mod common;
 
 use common::{git_available, GitRepoFixture};
 use tempfile::TempDir;
-use oz_lib::modules::fs::to_canon;
-use oz_lib::modules::git::errors::GitError;
-use oz_lib::modules::git::operations;
-use oz_lib::modules::git::types::DiscardEntry;
-use oz_lib::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
+use cli_ck_lib::modules::fs::to_canon;
+use cli_ck_lib::modules::git::errors::GitError;
+use cli_ck_lib::modules::git::operations;
+use cli_ck_lib::modules::git::types::DiscardEntry;
+use cli_ck_lib::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
 
 fn skip_if_no_git() -> bool {
     if !git_available() {

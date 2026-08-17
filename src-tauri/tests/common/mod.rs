@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use tempfile::TempDir;
-use oz_lib::modules::fs::to_canon;
-use oz_lib::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
+use cli_ck_lib::modules::fs::to_canon;
+use cli_ck_lib::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
 
 pub struct GitRepoFixture {
     pub registry: WorkspaceRegistry,
@@ -23,8 +23,8 @@ impl GitRepoFixture {
 
         run_git_in(&canonical, &["init", "-q"]);
         run_git_in(&canonical, &["symbolic-ref", "HEAD", "refs/heads/main"]);
-        run_git_in(&canonical, &["config", "user.email", "test@oz.local"]);
-        run_git_in(&canonical, &["config", "user.name", "Oz Test"]);
+        run_git_in(&canonical, &["config", "user.email", "test@cli-ck.local"]);
+        run_git_in(&canonical, &["config", "user.name", "cli-ck Test"]);
         run_git_in(&canonical, &["config", "commit.gpgsign", "false"]);
         run_git_in(&canonical, &["config", "core.autocrlf", "false"]);
 

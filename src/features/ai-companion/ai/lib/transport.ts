@@ -5,13 +5,13 @@ import type { ProviderKeys, CustomEndpointKeys } from "./keyring";
 import { native } from "./native";
 import type { ToolContext } from "../tools/tools";
 
-const OZ_MD_MAX_BYTES = 32 * 1024;
+const CLI_CK_MD_MAX_BYTES = 32 * 1024;
 type MemoryCacheEntry = { content: string | null; mtime: number };
 const projectMemoryCache = new Map<string, MemoryCacheEntry>();
 
-async function readOzMd(workspaceRoot: string | null): Promise<string | null> {
+async function readCliCkMd(workspaceRoot: string | null): Promise<string | null> {
   if (!workspaceRoot) return null;
-  const path = `${workspaceRoot.replace(/\/$/, "")}/OZ.md`;
+  const path = `${workspaceRoot.replace(/\/$/, "")}/cli-ck.md`;
   const cached = projectMemoryCache.get(workspaceRoot);
   if (cached && Date.now() - cached.mtime < 30_000) return cached.content;
   try {
@@ -21,8 +21,8 @@ async function readOzMd(workspaceRoot: string | null): Promise<string | null> {
       return null;
     }
     const content =
-      r.content.length > OZ_MD_MAX_BYTES
-        ? r.content.slice(0, OZ_MD_MAX_BYTES)
+      r.content.length > CLI_CK_MD_MAX_BYTES
+        ? r.content.slice(0, CLI_CK_MD_MAX_BYTES)
         : r.content;
     projectMemoryCache.set(workspaceRoot, { content, mtime: Date.now() });
     return content;
@@ -90,7 +90,7 @@ export function forwardStreamError(error: unknown): string {
 export function createContextAwareTransport(deps: Deps) {
   const run = async (options: SendOptions) => {
     const live = deps.getLive();
-    const projectMemory = await readOzMd(live.workspaceRoot);
+    const projectMemory = await readCliCkMd(live.workspaceRoot);
     const envBlock = formatEnvBlock(live);
     const messagesForRun = envBlock
       ? injectEnvIntoLastUser(options.messages, envBlock)
@@ -125,7 +125,7 @@ export function createContextAwareTransport(deps: Deps) {
     return result.toUIMessageStream({
       originalMessages: options.messages,
       // The AI SDK masks stream errors as the generic "An error occurred." by
-      // default. Oz is a local BYOK app — there is no server secret to protect
+      // default. cli-ck is a local BYOK app — there is no server secret to protect
       // — so forward the real provider/model error to the user instead, or every
       // failure (bad model id, auth, rate limit, tool error) is undiagnosable.
       onError: forwardStreamError,

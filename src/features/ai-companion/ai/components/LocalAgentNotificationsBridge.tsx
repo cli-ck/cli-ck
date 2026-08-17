@@ -5,7 +5,7 @@ import type { AgentStatus } from "@/features/ai-companion/agents/lib/types";
 import { useEffect, useRef } from "react";
 import { useAiChatStore } from "../store/aiChatStore";
 
-const AGENT = "Oz";
+const AGENT = "cli-ck";
 
 type RunStatus =
   | "idle"
@@ -63,11 +63,11 @@ export function LocalAgentNotificationsBridge() {
       });
 
     if (status === "awaiting-approval") {
-      fire("attention", "Oz needs your approval", "Approve a tool to continue");
+      fire("attention", "cli-ck needs your approval", "Approve a tool to continue");
     } else if (status === "error") {
-      fire("error", "Oz run failed", error ?? undefined);
+      fire("error", "cli-ck run failed", error ?? undefined);
     } else if (status === "idle" && isBusy(was)) {
-      fire("finished", "Oz finished", "Your task is ready");
+      fire("finished", "cli-ck finished", "Your task is ready");
     }
   }, [status, error]);
 

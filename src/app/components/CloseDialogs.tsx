@@ -129,7 +129,7 @@ export function CloseDialogs({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Quit Oz?</AlertDialogTitle>
+            <AlertDialogTitle>Quit cli-ck?</AlertDialogTitle>
             <AlertDialogDescription>
               A process is still running in a terminal. Quitting will terminate
               it.

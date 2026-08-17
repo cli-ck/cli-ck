@@ -25,7 +25,7 @@ type Props = {
 };
 
 const PILL_CLASS =
-  "oz-pill-in ml-1.5 flex h-6 shrink-0 cursor-pointer [&_button]:cursor-pointer items-center gap-1 rounded-full border border-border/50 bg-accent/50 px-2 text-[10.5px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground";
+  "cli-ck-pill-in ml-1.5 flex h-6 shrink-0 cursor-pointer [&_button]:cursor-pointer items-center gap-1 rounded-full border border-border/50 bg-accent/50 px-2 text-[10.5px] font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground";
 
 export function LspStatusPill({ filePath }: Props) {
   const hint = useLspHint(filePath);
@@ -168,7 +168,7 @@ function InstallPill({ preset }: { preset: LspPreset }) {
           {preset.name} language server
         </div>
         <p className="mb-2 text-muted-foreground">
-          Oz found no{" "}
+          cli-ck found no{" "}
           <code className="text-foreground">{preset.command}</code> on your
           PATH. Install it, then check again:
         </p>

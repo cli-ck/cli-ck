@@ -5,8 +5,8 @@ import { appConfigDir, join } from "@tauri-apps/api/path";
 import type { Theme } from "./types";
 import { validateTheme, type ValidationResult } from "./validateTheme";
 
-const THEME_FILE_EXT = ".oz-theme";
-const THEME_EDIT_EVENT = "oz://theme-edit";
+const THEME_FILE_EXT = ".cli-ck-theme";
+const THEME_EDIT_EVENT = "cli-ck://theme-edit";
 
 export type ThemeEditRequest =
   | { action: "create" }

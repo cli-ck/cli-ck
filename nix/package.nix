@@ -9,15 +9,15 @@ let
 
   srcMap = {
     x86_64-linux = fetchurl {
-      url = "https://github.com/codecollab-co/oz/releases/download/v${version}/Oz_${version}_amd64.deb";
+      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_${version}_amd64.deb";
       hash = sources.hashes.x86_64-linux;
     };
     x86_64-darwin = fetchurl {
-      url = "https://github.com/codecollab-co/oz/releases/download/v${version}/Oz_x64.app.tar.gz";
+      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_x64.app.tar.gz";
       hash = sources.hashes.x86_64-darwin;
     };
     aarch64-darwin = fetchurl {
-      url = "https://github.com/codecollab-co/oz/releases/download/v${version}/Oz_aarch64.app.tar.gz";
+      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_aarch64.app.tar.gz";
       hash = sources.hashes.aarch64-darwin;
     };
   };
@@ -26,10 +26,10 @@ let
 in
 
 assert lib.assertMsg (builtins.hasAttr sys srcMap)
-  "oz: unsupported platform ${sys}";
+  "cli-ck: unsupported platform ${sys}";
 
 stdenv.mkDerivation {
-  pname = "oz";
+  pname = "cli-ck";
   inherit version;
 
   src = srcMap.${sys};
@@ -57,9 +57,9 @@ stdenv.mkDerivation {
   installPhase = if stdenv.hostPlatform.isLinux then ''
     mkdir -p $out/bin $out/share
     cp -r usr/share/* $out/share/
-    install -Dm755 usr/bin/oz $out/bin/oz
+    install -Dm755 usr/bin/cli-ck $out/bin/cli-ck
 
-    wrapProgram $out/bin/oz \
+    wrapProgram $out/bin/cli-ck \
       "''${gappsWrapperArgs[@]}" \
       --prefix GST_PLUGIN_SYSTEM_PATH : "$GST_PLUGIN_SYSTEM_PATH"
   '' else ''
@@ -69,7 +69,7 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Open-source lightweight cross-platform AI-native terminal emulator";
-    homepage = "https://github.com/codecollab-co/oz";
+    homepage = "https://github.com/cli-ck/cli-ck";
     license = licenses.asl20;
     platforms = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
   };

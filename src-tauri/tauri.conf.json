@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Oz",
+  "productName": "cli-ck",
   "version": "0.2.5",
-  "identifier": "app.codecollab-co.oz",
+  "identifier": "app.cli-ck.cli-ck",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Oz",
+        "title": "cli-ck",
         "width": 1000,
         "height": 700,
         "minWidth": 420,
@@ -90,13 +90,13 @@
     },
     "category": "DeveloperTool",
     "shortDescription": "AI-native terminal emulator",
-    "longDescription": "Oz — an open-source AI-native terminal emulator with multi-tab, file explorer, code editor, web preview, voice input, and AI agents."
+    "longDescription": "cli-ck — an open-source AI-native terminal emulator with multi-tab, file explorer, code editor, web preview, voice input, and AI agents."
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZERkE3QjEzNTEwRkI0MTcKUldRWHRBOVJFM3Y2L2V6K0praVBReGN0dnhUWXk4NkRTWFh5ai85OHA5WmxnZkE1bkk4QnJEYTUK",
       "endpoints": [
-        "https://github.com/codecollab-co/oz/releases/latest/download/latest.json"
+        "https://github.com/cli-ck/cli-ck/releases/latest/download/latest.json"
       ]
     }
   }

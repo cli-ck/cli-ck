@@ -44,8 +44,8 @@ type ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState | null>(null);
 
-const FAST_PATH_KEY = "oz-ui-theme-shadow";
-const FAST_PATH_THEME_ID = "oz-ui-theme-id-shadow";
+const FAST_PATH_KEY = "cli-ck-ui-theme-shadow";
+const FAST_PATH_THEME_ID = "cli-ck-ui-theme-id-shadow";
 
 function readFastMode(fallback: ThemePref): ThemePref {
   if (typeof window === "undefined") return fallback;

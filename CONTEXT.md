@@ -1,15 +1,15 @@
-# Oz Context Glossary
+# cli-ck Context Glossary
 
-This document defines the core domain terms used throughout the Oz project.
+This document defines the core domain terms used throughout the cli-ck project.
 
 ## Language
 
-**Oz**:
+**cli-ck**:
 The open-source AI-native terminal emulator and agentic development environment.
 _Avoid_: App, client, shell application
 
 **Launcher**:
-The lightweight NPM CLI wrapper package that downloads, extracts, and runs the Oz desktop application binaries for the host OS.
+The lightweight NPM CLI wrapper package that downloads, extracts, and runs the cli-ck desktop application binaries for the host OS.
 _Avoid_: Wrapper, installer, runner
 
 **WebGL Renderer**:
@@ -57,7 +57,7 @@ Large language models hosted and executed locally on the user's CPU/GPU via clie
 _Avoid_: Remote weights, cloud LLM, API server models
 
 **Meta-Orchestration**:
-The process where the built-in Oz agent coordinates, launches, and manages external CLI-based coding agents as child PTY sessions.
+The process where the built-in cli-ck agent coordinates, launches, and manages external CLI-based coding agents as child PTY sessions.
 _Avoid_: Custom wrappers, endpoint plugins, standalone executors
 
 **Session Persistence**:
@@ -67,7 +67,7 @@ _Avoid_: Process checkpointing, VM snapshot, memory freeze
 ## Example Dialogue
 
 
-**Developer**: I am setting up **Oz** on my new system. Should I download the desktop app binary manually?
+**Developer**: I am setting up **cli-ck** on my new system. Should I download the desktop app binary manually?
 
 **DevOps Expert**: No, just install the **Launcher** globally via NPM and run it. It automatically downloads and extracts the correct platform-specific binaries in the background for you.
 

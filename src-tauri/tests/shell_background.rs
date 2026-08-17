@@ -2,8 +2,8 @@
 
 use std::time::{Duration, Instant};
 
-use oz_lib::modules::shell::background;
-use oz_lib::modules::workspace::WorkspaceEnv;
+use cli_ck_lib::modules::shell::background;
+use cli_ck_lib::modules::workspace::WorkspaceEnv;
 
 fn wait_until<F: Fn() -> bool>(timeout: Duration, check: F) -> bool {
     let deadline = Instant::now() + timeout;

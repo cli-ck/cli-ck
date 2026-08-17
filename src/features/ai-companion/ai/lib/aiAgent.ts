@@ -155,8 +155,8 @@ export async function buildLanguageModel(
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: key,
         headers: {
-          "HTTP-Referer": "https://oz.ai",
-          "X-Title": "Oz",
+          "HTTP-Referer": "https://cli-ck.ai",
+          "X-Title": "cli-ck",
         },
       })(resolvedModelId);
       break;
@@ -316,7 +316,7 @@ function buildStableSystem(
     : "";
   const memoryBlock =
     projectMemory && projectMemory.trim().length > 0
-      ? `\n\n## PROJECT — OZ.md\n${projectMemory.trim()}`
+      ? `\n\n## PROJECT — cli-ck.md\n${projectMemory.trim()}`
       : "";
   return `${base}${memoryBlock}${personaBlock}${customBlock}`;
 }

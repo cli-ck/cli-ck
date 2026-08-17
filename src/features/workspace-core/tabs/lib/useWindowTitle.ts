@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { findLeafCwd } from "@/features/shell-pty/terminal/lib/panes";
 import type { Tab } from "./useWorkspaceTabs";
 
-const APP_NAME = "Oz";
+const APP_NAME = "cli-ck";
 
 function basename(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
@@ -25,7 +25,7 @@ function tabLabel(tab: Tab | undefined): string {
  * Spotify shows the current track instead of just the app name. Without this
  * the window keeps the build-time default ("Tauri App" on Linux).
  *
- * Format: `<project> — <tab>` (e.g. `oz-ai — src`), collapsing to just the
+ * Format: `<project> — <tab>` (e.g. `cli-ck-ai — src`), collapsing to just the
  * project when the focused terminal sits at the project root. Falls back to the
  * app name when there's nothing to show.
  */

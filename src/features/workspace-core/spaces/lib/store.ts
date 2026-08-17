@@ -18,7 +18,7 @@ export type SpaceState = {
   activeTabIndex: number;
 };
 
-const STORE_PATH = "oz-spaces.json";
+const STORE_PATH = "cli-ck-spaces.json";
 const KEY_SPACES = "spaces";
 const KEY_ACTIVE = "activeId";
 const STATE_PREFIX = "state:";

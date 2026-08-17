@@ -65,7 +65,7 @@ if (subcommand === 'uninstall') {
 } else if (subcommand === 'install') {
   ensureBinary(() => {
     const target = installDesktop();
-    console.log(`\nOz installed: ${target}`);
+    console.log(`\ncli-ck installed: ${target}`);
     console.log('Launch it from your applications menu, or run `cli-ck`.');
     console.log('Remove it any time with `cli-ck uninstall`.');
   });

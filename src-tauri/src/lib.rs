@@ -46,7 +46,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
             // emit() serializes via JSON — no string-escape footgun, unlike
             // eval() with format!(). Frontend listens via Tauri event API.
-            let _ = window.emit("oz:settings-tab", t);
+            let _ = window.emit("cli-ck:settings-tab", t);
         }
         return Ok(());
     }

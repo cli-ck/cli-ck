@@ -2995,7 +2995,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "oz"
+name = "cli-ck"
 version = "0.2.5"
 dependencies = [
  "bytes",
