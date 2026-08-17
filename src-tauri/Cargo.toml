@@ -1,6 +1,6 @@
 [package]
 name = "cli-ck"
-version = "0.2.5"
+version = "0.2.6"
 description = "cli-ck — an open-source AI-native terminal emulator"
 authors = ["codecollab-co"]
 license = "Apache-2.0"

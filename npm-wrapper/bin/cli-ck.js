@@ -26,31 +26,24 @@ const { spawn, spawnSync, execSync } = require('child_process');
 const https = require('https');
 
 const VERSION = require('../package.json').version;
-const REPO = 'cli-ck/cli-ck';
+const {
+  PRODUCT,
+  REPO,
+  artifactName: resolveArtifactName,
+  binaryRelPath: resolveBinaryRelPath,
+  downloadUrl,
+} = require('../lib/release-artifacts');
 
 const homeDir = os.homedir();
-const installDir = path.join(homeDir, '.cli-ck');
+const installDir = path.join(homeDir, `.${PRODUCT}`);
 const binDir = path.join(installDir, 'bin', VERSION);
 
 const platform = os.platform();
 const arch = os.arch();
+const binaryRelPath = resolveBinaryRelPath(platform);
+const artifactName = resolveArtifactName({ platform, arch, version: VERSION });
 
-let binaryRelPath = '';
-let artifactName = '';
-
-if (platform === 'darwin') {
-  binaryRelPath = 'cli-ck.app/Contents/MacOS/cli-ck';
-  // Tauri names the macOS updater bundle with the version, e.g. cli-ck_0.2.3_aarch64.app.tar.gz
-  artifactName = arch === 'arm64'
-    ? `cli-ck_${VERSION}_aarch64.app.tar.gz`
-    : `cli-ck_${VERSION}_x64.app.tar.gz`;
-} else if (platform === 'linux') {
-  binaryRelPath = 'cli-ck';
-  artifactName = 'oz_linux_x64.zip';
-} else if (platform === 'win32') {
-  binaryRelPath = 'cli-ck.exe';
-  artifactName = 'oz_windows_x64.zip';
-} else {
+if (!binaryRelPath || !artifactName) {
   console.error(`Unsupported platform: ${platform}`);
   process.exit(1);
 }
@@ -65,6 +58,7 @@ if (subcommand === 'uninstall') {
 } else if (subcommand === 'install') {
   ensureBinary(() => {
     const target = installDesktop();
+    warnLeftoverOz();
     console.log(`\ncli-ck installed: ${target}`);
     console.log('Launch it from your applications menu, or run `cli-ck`.');
     console.log('Remove it any time with `cli-ck uninstall`.');
@@ -74,8 +68,19 @@ if (subcommand === 'uninstall') {
     // Reuse an existing install unless we just pulled a new version.
     const existing = installedTarget();
     const target = !downloaded && existing ? existing : installDesktop();
+    warnLeftoverOz();
     launch(target, argv);
   });
+}
+
+function warnLeftoverOz() {
+  if (platform !== 'darwin') return;
+  const leftover = '/Applications/Oz.app';
+  if (fs.existsSync(leftover)) {
+    console.warn(
+      `Note: ${leftover} is still installed from @codecollab.co/oz. Quit that app and delete it so Settings → About is not the old Oz build.`,
+    );
+  }
 }
 
 // ------------------------------------------------------------------ download
@@ -92,7 +97,7 @@ function downloadAndExtract(done) {
   console.log(`cli-ck v${VERSION} is not downloaded yet. Fetching for ${platform}-${arch}...`);
   fs.mkdirSync(binDir, { recursive: true });
 
-  const url = `https://github.com/${REPO}/releases/download/v${VERSION}/${artifactName}`;
+  const url = downloadUrl({ repo: REPO, version: VERSION, artifact: artifactName });
   const archivePath = path.join(binDir, artifactName);
   const file = fs.createWriteStream(archivePath);
 
@@ -103,7 +108,11 @@ function downloadAndExtract(done) {
         return;
       }
       if (response.statusCode !== 200) {
-        console.error(`Failed to download binary: HTTP ${response.statusCode}`);
+        console.error(`Failed to download ${artifactName}: HTTP ${response.statusCode}`);
+        console.error(`URL: ${url}`);
+        console.error(
+          'A matching cli-ck GitHub release asset is required. v0.2.5 shipped Oz-branded files, so npm cannot install cli-ck until a newer tagged release publishes cli-ck_* artifacts.',
+        );
         process.exit(1);
       }
 
@@ -167,8 +176,8 @@ function installDesktop() {
 
 function installedTarget() {
   if (platform === 'darwin') {
-    const inApps = '/Applications/cli-ck.app';
-    const inHome = path.join(homeDir, 'Applications', 'cli-ck.app');
+    const inApps = `/Applications/${PRODUCT}.app`;
+    const inHome = path.join(homeDir, 'Applications', `${PRODUCT}.app`);
     if (fs.existsSync(inApps)) return inApps;
     if (fs.existsSync(inHome)) return inHome;
     return null;
@@ -186,12 +195,22 @@ function installedTarget() {
 // an installed app, strip the quarantine flag, and repair the ad-hoc signature
 // if extraction invalidated it (that broken signature is the "damaged" cause).
 function installMac() {
-  const source = path.join(binDir, 'cli-ck.app');
+  const source = path.join(binDir, `${PRODUCT}.app`);
+  if (!fs.existsSync(source)) {
+    const leftoverOz = path.join(binDir, 'Oz.app');
+    if (fs.existsSync(leftoverOz)) {
+      console.error('Downloaded archive still contains Oz.app, not cli-ck.app.');
+      console.error('The GitHub release for this version was built before the rename.');
+      process.exit(1);
+    }
+    console.error(`Expected ${source} after extract, but it is missing.`);
+    process.exit(1);
+  }
   sanitizeMacApp(source);
 
   const candidates = [
-    '/Applications/cli-ck.app',
-    path.join(homeDir, 'Applications', 'cli-ck.app'),
+    `/Applications/${PRODUCT}.app`,
+    path.join(homeDir, 'Applications', `${PRODUCT}.app`),
   ];
 
   for (const dest of candidates) {
@@ -311,8 +330,8 @@ function uninstall() {
   };
 
   if (platform === 'darwin') {
-    tryRm('/Applications/cli-ck.app');
-    tryRm(path.join(homeDir, 'Applications', 'cli-ck.app'));
+    tryRm(`/Applications/${PRODUCT}.app`);
+    tryRm(path.join(homeDir, 'Applications', `${PRODUCT}.app`));
   } else if (platform === 'win32') {
     tryRm(startMenuShortcut());
   } else if (platform === 'linux') {

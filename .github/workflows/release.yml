@@ -126,16 +126,16 @@ jobs:
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          Compress-Archive -Path src-tauri/target/release/cli-ck.exe -DestinationPath src-tauri/target/release/oz_windows_x64.zip
-          gh release upload ${{ github.ref_name }} src-tauri/target/release/oz_windows_x64.zip --clobber --repo ${{ github.repository }}
+          Compress-Archive -Path src-tauri/target/release/cli-ck.exe -DestinationPath src-tauri/target/release/cli-ck_windows_x64.zip
+          gh release upload ${{ github.ref_name }} src-tauri/target/release/cli-ck_windows_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Zip release binary (Linux)
         if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
         run: |
-          zip -j src-tauri/target/release/oz_linux_x64.zip src-tauri/target/release/cli-ck
-          gh release upload ${{ github.ref_name }} src-tauri/target/release/oz_linux_x64.zip --clobber --repo ${{ github.repository }}
+          zip -j src-tauri/target/release/cli-ck_linux_x64.zip src-tauri/target/release/cli-ck
+          gh release upload ${{ github.ref_name }} src-tauri/target/release/cli-ck_linux_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
