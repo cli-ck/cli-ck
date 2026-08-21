@@ -83,13 +83,43 @@ const server = await createServer({
   root: repoRoot,
   configFile: false,
   logLevel: "warn",
+  plugins: [
+    {
+      // aiAgent.ts's import graph transitively reaches UI components that
+      // import CSS; this headless runner only needs the pure agent logic,
+      // and Vite's CSS pipeline isn't wired up without the real
+      // vite.config.ts plugins (tailwind, react), so stub CSS out entirely.
+      // Resolve to a virtual id (no .css suffix) so Vite's built-in css
+      // plugins never see the file extension and skip it entirely — a
+      // load() stub alone isn't enough, they still transform by extension.
+      name: "stub-css",
+      enforce: "pre",
+      resolveId(id) {
+        // Suffix must NOT end in .css — vite:css-post matches by suffix on
+        // the whole id, so a "\0stub-css:foo.css" prefix alone still matches.
+        if (id.endsWith(".css")) return `\0stub-css:${encodeURIComponent(id)}.js`;
+      },
+      load(id) {
+        if (id.startsWith("\0stub-css:")) return "export default {};";
+      },
+    },
+  ],
   resolve: {
     alias: [
       { find: "@tauri-apps/api/core", replacement: path.join(__dirname, "tauriInvokeShim.ts") },
+      // tools/agent.ts pulls `writeToSession` from the shell-pty terminal
+      // barrel, which also re-exports React/@xterm components — stub it
+      // out for this headless runner (see shellPtyTerminalStub.ts).
+      { find: /^@\/features\/shell-pty\/terminal$/, replacement: path.join(__dirname, "shellPtyTerminalStub.ts") },
       { find: "@", replacement: path.join(repoRoot, "src") },
     ],
   },
-  ssr: { noExternal: true },
+  // No `ssr.noExternal` — Vite's default SSR behavior externalizes
+  // node_modules packages (letting Node's own require()/import handle their
+  // CJS/ESM interop natively) and only transforms our own src/**.ts, which
+  // is all this script needs. Forcing noExternal:true made Vite try to
+  // ESM-transform third-party CJS packages (react, @vercel/oidc) itself and
+  // broke ("module is not defined").
 });
 
 try {

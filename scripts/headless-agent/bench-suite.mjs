@@ -29,21 +29,27 @@ const repoRoot = path.resolve(__dirname, "../..");
 // first if this ever runs on a box with a standalone Oz install instead.
 const OZ_BIN = "/Applications/Warp.app/Contents/Resources/bin/oz";
 
+const PROVIDER_ENV_VAR = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" };
+const PROVIDER_DEFAULT_MODEL = { anthropic: "claude-sonnet-5", openai: "gpt-5.4-mini" };
+
 const { values } = parseArgs({
   options: {
     tool: { type: "string", default: "both" },
-    model: { type: "string", default: "claude-sonnet-5" },
+    provider: { type: "string", default: "anthropic" },
+    model: { type: "string" },
     tasks: { type: "string" },
   },
 });
+values.model ??= PROVIDER_DEFAULT_MODEL[values.provider] ?? "claude-sonnet-5";
 
 const taskIds = values.tasks ? new Set(values.tasks.split(",")) : null;
 const tasks = taskIds ? TASKS.filter((t) => taskIds.has(t.id)) : TASKS;
 const runCliCk = values.tool === "both" || values.tool === "cli-ck";
 const runOz = values.tool === "both" || values.tool === "oz";
 
-if (runCliCk && !process.env.ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY is required to benchmark cli-ck. Set it and re-run.");
+const cliCkApiKeyEnv = PROVIDER_ENV_VAR[values.provider] ?? `${values.provider.toUpperCase()}_API_KEY`;
+if (runCliCk && !process.env[cliCkApiKeyEnv]) {
+  console.error(`${cliCkApiKeyEnv} is required to benchmark cli-ck with provider "${values.provider}". Set it and re-run.`);
   process.exit(1);
 }
 if (runOz && !process.env.WARP_API_KEY) {
@@ -72,7 +78,7 @@ async function runCliCkAgent(task, dir) {
         "--cwd",
         dir,
         "--provider",
-        "anthropic",
+        values.provider,
         "--model",
         values.model,
       ],
