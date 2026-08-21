@@ -27,6 +27,12 @@ export type ToolContext = {
    * rather than relying on the model to honor the instruction.
    */
   protectedFiles?: Set<string>;
+  /**
+   * Skips the `tool-approval-request` pause on mutating tools. Only ever
+   * true for the headless benchmark runner (scripts/headless-agent) — the
+   * GUI never sets this, so approval behavior there is unchanged.
+   */
+  autoApprove?: boolean;
 };
 
 export function resolvePath(rawPath: string, cwd: string | null): string {

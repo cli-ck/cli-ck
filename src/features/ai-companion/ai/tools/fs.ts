@@ -140,7 +140,7 @@ export function buildFsTools(ctx: ToolContext) {
         path: z.string(),
         content: z.string(),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path, content }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
@@ -193,7 +193,7 @@ export function buildFsTools(ctx: ToolContext) {
       inputSchema: z.object({
         path: z.string(),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
