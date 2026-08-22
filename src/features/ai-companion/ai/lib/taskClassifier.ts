@@ -96,3 +96,30 @@ export function classifyMessageTier(messages: readonly UIMessage[]): ModelTier {
   if (isShort && looksLikeLookup && noCodeReference) return "light";
   return "standard";
 }
+
+/** Coarse task domain, orthogonal to ModelTier (which is complexity, not
+ *  domain). Lets model-reliability memory (modelFriction.ts) learn e.g. "this
+ *  model times out on code, fine for reading" instead of one blended rate —
+ *  the "team of models" story is only as good as picking the right model per
+ *  task, not just the right size. */
+export type TaskKind = "code" | "read" | "general";
+
+/** Reuses the same signals as classifyMessageTier, applied directly to text
+ *  so worker/team callers (workerRun.ts) can classify a standalone prompt
+ *  with no message history. */
+export function classifyTaskKindFromText(text: string): TaskKind {
+  if (
+    SUBSTANTIVE_KEYWORDS.test(text) ||
+    CODE_REFERENCE_RE.test(text) ||
+    text.includes("```")
+  ) {
+    return "code";
+  }
+  if (LOOKUP_KEYWORDS.test(text)) return "read";
+  return "general";
+}
+
+export function classifyTaskKind(messages: readonly UIMessage[]): TaskKind {
+  if (hasSustainedToolActivity(messages)) return "code";
+  return classifyTaskKindFromText(lastUserText(messages));
+}

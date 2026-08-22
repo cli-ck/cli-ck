@@ -3,8 +3,10 @@ import { useWorkerRunsStore } from "@/features/ai-companion/agents/store/workerR
 import { tool } from "ai";
 import { z } from "zod";
 import type { ModelTier } from "../config";
+import { recordFriction } from "../lib/modelFriction";
 import {
   createWorkerChat,
+  KIND_FOR_ROLE,
   runWorkerToCompletion,
   type WorkerDeps,
   type WorkerRole,
@@ -78,6 +80,11 @@ async function spawnAndRun(
   try {
     const result = await runWorkerToCompletion(handle, prompt);
     useWorkerRunsStore.getState().setStatus(handle.id, result.timedOut ? "error" : "done");
+    recordFriction(
+      handle.modelId,
+      KIND_FOR_ROLE[role],
+      result.timedOut ? "stepCap" : "ok",
+    );
     return {
       role,
       modelId: handle.modelId,

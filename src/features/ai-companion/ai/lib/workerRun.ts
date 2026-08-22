@@ -11,7 +11,9 @@ import {
   type LocalProviderConfig,
 } from "./transport";
 import type { CustomEndpointKeys, ProviderKeys } from "./keyring";
+import { isHighFriction } from "./modelFriction";
 import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
+import type { TaskKind } from "./taskClassifier";
 
 /** Tools a disposable worker must never see: spawning another worker/team or
  *  an external CLI agent recursively, or reaching into the parent session's
@@ -30,6 +32,18 @@ const WORKER_BLOCKED_TOOLS = new Set([
 ]);
 
 export type WorkerRole = "planner" | "builder" | "reviewer" | "step";
+
+/** Role implies task domain closely enough to skip re-classifying each
+ *  worker's prompt: planner/reviewer only ever read, builder only ever
+ *  mutates. "step" (spawn_worker) covers either, so it stays "general" —
+ *  the model isn't known yet when a step worker is created (see
+ *  createWorkerChat), only once its prompt is sent. */
+export const KIND_FOR_ROLE: Record<WorkerRole, TaskKind> = {
+  planner: "read",
+  reviewer: "read",
+  builder: "code",
+  step: "general",
+};
 
 const ROLE_INSTRUCTIONS: Record<WorkerRole, string> = {
   planner:
@@ -107,7 +121,13 @@ export function createWorkerChat(
     : undefined;
   const modelId =
     overrideHit?.id ??
-    resolveTierModel(tier, available, deps.getModelTiers())?.id ??
+    resolveTierModel(
+      tier,
+      available,
+      deps.getModelTiers(),
+      undefined,
+      (id) => isHighFriction(id, KIND_FOR_ROLE[role]),
+    )?.id ??
     DEFAULT_MODEL_ID;
 
   const readCache = new Map<string, { size: number; hash: number }>();
