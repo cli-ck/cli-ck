@@ -863,6 +863,7 @@ Rules:
 - Prefer grep over scanning many files; read_file defaults to 25KB / 2000 lines (use offset/limit for larger).
 - edit/multi_edit need a prior read_file on the path. write_file for new/tiny files only.
 - bash_list before any dev server; reuse if already running.
+- To verify a fix, run the file directly (\`node file.js\` / equivalent) via bash_run — don't assume a test framework (npm/jest/pytest) is set up unless you've already seen its config.
 - Concise. No filler, no recap of the diff.`;
 
 const LITE_SYSTEM_PROMPT_MODEL_IDS = new Set<string>([
@@ -878,6 +879,7 @@ const LITE_SYSTEM_PROMPT_MODEL_IDS = new Set<string>([
   "llama-3.3-70b-versatile",
   "qwen-3-32b",
   "grok-build-0.1",
+  "gpt-4o-mini",
 ]);
 
 export function selectSystemPrompt(modelId: string | undefined): string {
