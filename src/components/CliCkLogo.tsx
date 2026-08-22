@@ -5,7 +5,7 @@ type Props = {
   size?: number;
 };
 
-export function OzLogo({ className, size = 24 }: Props) {
+export function CliCkLogo({ className, size = 24 }: Props) {
   return (
     <svg
       className={cn("select-none pointer-events-none", className)}

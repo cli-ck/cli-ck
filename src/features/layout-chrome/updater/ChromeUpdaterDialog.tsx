@@ -17,11 +17,11 @@ type DistroKey = "arch" | "debian" | "fedora";
 function distroCommand(key: DistroKey, version: string): string {
   switch (key) {
     case "arch":
-      return "yay -S oz-bin";
+      return "yay -S cli-ck-bin";
     case "debian":
-      return `sudo apt install ./Oz_${version}_amd64.deb`;
+      return `sudo apt install ./cli-ck_${version}_amd64.deb`;
     case "fedora":
-      return `sudo dnf install ./Oz-${version}-1.x86_64.rpm`;
+      return `sudo dnf install ./cli-ck-${version}-1.x86_64.rpm`;
   }
 }
 
@@ -92,12 +92,12 @@ export function ChromeUpdaterDialog() {
               : downloading
                 ? "Downloading update…"
                 : manual
-                  ? `Oz v${manual.version} is available`
-                  : `Oz v${update?.version} is available`}
+                  ? `cli-ck v${manual.version} is available`
+                  : `cli-ck v${update?.version} is available`}
           </DialogTitle>
           <DialogDescription>
             {ready
-              ? "Restart Oz to finish installing."
+              ? "Restart cli-ck to finish installing."
               : downloading
                 ? progress !== null
                   ? `${progress.toFixed(0)}% — ${formatBytes(status.downloaded)}`

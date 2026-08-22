@@ -62,4 +62,4 @@ export type Theme = {
   };
 };
 
-export const DEFAULT_THEME_ID = "oz-default";
+export const DEFAULT_THEME_ID = "cli-ck-default";

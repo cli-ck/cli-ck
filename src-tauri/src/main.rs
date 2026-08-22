@@ -14,5 +14,5 @@ fn main() {
         }
     }
 
-    oz_lib::run()
+    cli_ck_lib::run()
 }

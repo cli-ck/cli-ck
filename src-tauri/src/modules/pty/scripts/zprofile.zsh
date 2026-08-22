@@ -1,4 +1,4 @@
-# oz-shell-integration (zprofile)
+# cli-ck-shell-integration (zprofile)
 #
 # See zshenv.zsh for the rationale on the trailing `:`.
 {

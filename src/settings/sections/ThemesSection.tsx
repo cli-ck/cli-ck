@@ -168,13 +168,13 @@ export function ThemesSection() {
               className="h-7 px-2 text-[11px]"
               onClick={onPickThemeFile}
             >
-              Import .oz-theme
+              Import .cli-ck-theme
             </Button>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".oz-theme,.json,application/json"
+            accept=".cli-ck-theme,.json,application/json"
             className="hidden"
             onChange={(e) => {
               void handleThemeFiles(e.target.files);

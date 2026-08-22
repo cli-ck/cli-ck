@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   test-sign-windows:
-    if: github.repository == 'codecollab-co/oz'
+    if: github.repository == 'cli-ck/cli-ck'
     runs-on: windows-latest
     permissions:
       contents: read
@@ -51,8 +51,8 @@ jobs:
           $msi = Get-ChildItem -Path "$bundleDir/msi"  -Filter "*.msi" -ErrorAction Stop | Select-Object -First 1
           if (-not $exe) { throw "No .exe installer produced by Tauri" }
           if (-not $msi) { throw "No .msi installer produced by Tauri" }
-          Copy-Item $exe.FullName -Destination "$stagingDir/oz-setup.exe"
-          Copy-Item $msi.FullName -Destination "$stagingDir/oz.msi"
+          Copy-Item $exe.FullName -Destination "$stagingDir/cli-ck-setup.exe"
+          Copy-Item $msi.FullName -Destination "$stagingDir/cli-ck.msi"
           Write-Host "Staged files:"
           Get-ChildItem $stagingDir
 
@@ -69,7 +69,7 @@ jobs:
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 'df665bf4-9b76-41ae-9596-1ba3a23010aa'
-          project-slug: 'oz'
+          project-slug: 'cli-ck'
           signing-policy-slug: 'test-signing'
           artifact-configuration-slug: 'initial'
           github-artifact-id: ${{ steps.upload.outputs.artifact-id }}

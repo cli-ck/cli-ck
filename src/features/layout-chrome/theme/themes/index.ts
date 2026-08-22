@@ -11,7 +11,7 @@ import { nord } from "./nord";
 import { rosePine } from "./rose-pine";
 import { sage } from "./sage";
 import { solarized } from "./solarized";
-import { ozDefault } from "./oz-default";
+import { ozDefault } from "./cli-ck-default";
 import { tide } from "./tide";
 import { tokyoNight } from "./tokyo-night";
 

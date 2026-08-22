@@ -1,5 +1,5 @@
-//! Bridge to the `oz-code-intel` sidecar (a separate repo,
-//! `codecollab-co/oz-code-intel` - see its own ROADMAP.md), OZ's code
+//! Bridge to the `cli-ck-code-intel` sidecar (a separate repo,
+//! `cli-ck/cli-ck-code-intel` - see its own ROADMAP.md), cli-ck's code
 //! intelligence helper: call-chain tracing, dead-code detection, structured
 //! search, and more, over a bundled child process speaking newline-delimited
 //! JSON on stdin/stdout.
@@ -9,12 +9,12 @@
 //! integration test, but nothing in `buildTools()`
 //! (`src/features/ai-companion/ai/tools/tools.ts`) calls them yet, and no
 //! settings/UI surface references them. That's intentional, not an
-//! oversight: oz-code-intel integration ships as a user-visible feature in
-//! a later OZ release, not this one.
+//! oversight: cli-ck-code-intel integration ships as a user-visible feature in
+//! a later cli-ck release, not this one.
 //!
 //! **Not yet registered as a bundled Tauri sidecar** (no
 //! `bundle.externalBin` entry in `tauri.conf.json`) - that would require a
-//! real per-platform `oz-code-intel` binary to exist at build time for
+//! real per-platform `cli-ck-code-intel` binary to exist at build time for
 //! every platform this app ships (macOS x2, Windows, Linux), which depends
 //! on that repo's own release pipeline actually firing (see its
 //! ROADMAP.md, Slice 25) or a cross-repo build step neither exists yet.
@@ -46,7 +46,7 @@ impl CodeIntelState {
     }
 }
 
-/// Spawns a new helper process and completes its handshake. One OZ session
+/// Spawns a new helper process and completes its handshake. One cli-ck session
 /// can hold several of these (e.g. one per open project), same as `lsp_spawn`.
 #[tauri::command]
 pub async fn code_intel_spawn(
@@ -62,7 +62,7 @@ pub async fn code_intel_spawn(
 
 /// Sends one request to a running helper and returns its response.
 /// `payload` and the return value are both `RequestPayload`/`ResponsePayload`
-/// - shaped JSON (see `oz-code-intel`'s `crates/protocol/src/lib.rs`) - this
+/// - shaped JSON (see `cli-ck-code-intel`'s `crates/protocol/src/lib.rs`) - this
 /// module has no compiled knowledge of those shapes, by design (see the
 /// module doc comment).
 #[tauri::command]
@@ -91,14 +91,14 @@ pub fn code_intel_kill(state: tauri::State<'_, CodeIntelState>, id: u32) {
 
 #[cfg(test)]
 mod tests {
-    /// Points at a real, locally-built `oz-code-intel` helper binary so this
+    /// Points at a real, locally-built `cli-ck-code-intel` helper binary so this
     /// test can spawn and talk to it for real rather than mocking the wire
-    /// protocol. Not wired into CI (which has no sibling `oz-code-intel`
+    /// protocol. Not wired into CI (which has no sibling `cli-ck-code-intel`
     /// checkout) - see `src-tauri/binaries/README.md` for how to build one
     /// locally; this test skips itself, loudly, if it's missing.
     fn dev_helper_binary() -> Option<std::path::PathBuf> {
         let candidate = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../oz-code-intel/target/release/oz-code-intel");
+            .join("../../cli-ck-code-intel/target/release/cli-ck-code-intel");
         candidate.exists().then_some(candidate)
     }
 
@@ -117,7 +117,7 @@ mod tests {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .expect("failed to spawn real oz-code-intel binary");
+            .expect("failed to spawn real cli-ck-code-intel binary");
         child
             .stdin
             .as_mut()
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn real_helper_completes_the_hello_handshake() {
         let Some(binary) = dev_helper_binary() else {
-            eprintln!("skipping: no local oz-code-intel build, see binaries/README.md");
+            eprintln!("skipping: no local cli-ck-code-intel build, see binaries/README.md");
             return;
         };
         let response = round_trip(
@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn real_helper_answers_a_free_tier_grep_search() {
         let Some(binary) = dev_helper_binary() else {
-            eprintln!("skipping: no local oz-code-intel build, see binaries/README.md");
+            eprintln!("skipping: no local cli-ck-code-intel build, see binaries/README.md");
             return;
         };
         let tmp = tempfile::tempdir().unwrap();

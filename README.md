@@ -1,31 +1,31 @@
 <div align="center">
-  <img src="public/logo.png" width="144" height="144" alt="Oz" />
-  <h1>Oz</h1>
+  <img src="public/logo.png" width="144" height="144" alt="cli-ck" />
+  <h1>cli-ck</h1>
 
   <p><strong>Lightweight Terminal-first AI-native dev workspace.</strong></p>
 
   <p>
-    <img src="https://img.shields.io/github/v/release/codecollab-co/oz?label=version&color=blue" alt="version" />
-    <a href="https://www.npmjs.com/package/@codecollab.co/oz" target="_blank">
-      <img src="https://img.shields.io/npm/v/@codecollab.co/oz?label=npm&color=blue" alt="npm" />
+    <img src="https://img.shields.io/github/v/release/cli-ck/cli-ck?label=version&color=blue" alt="version" />
+    <a href="https://www.npmjs.com/package/@codecollab.co/cli-ck" target="_blank">
+      <img src="https://img.shields.io/npm/v/@codecollab.co/cli-ck?label=npm&color=blue" alt="npm" />
     </a>
-    <img src="https://img.shields.io/github/downloads/codecollab-co/oz/total?label=github%20downloads&color=blue" alt="github downloads" />
-    <a href="https://www.npmjs.com/package/@codecollab.co/oz" target="_blank">
-      <img src="https://img.shields.io/npm/dt/@codecollab.co/oz?label=npm%20downloads&color=blue" alt="npm downloads" />
+    <img src="https://img.shields.io/github/downloads/cli-ck/cli-ck/total?label=github%20downloads&color=blue" alt="github downloads" />
+    <a href="https://www.npmjs.com/package/@codecollab.co/cli-ck" target="_blank">
+      <img src="https://img.shields.io/npm/dt/@codecollab.co%2Fcli-ck?label=npm%20downloads&color=blue" alt="npm downloads" />
     </a>
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="platform" />
   </p>
 
   <p>
-    <a href="https://github.com/codecollab-co/oz">Source code</a>
+    <a href="https://github.com/cli-ck/cli-ck">Source code</a>
     &nbsp;·&nbsp;
-    <a href="https://www.npmjs.com/package/@codecollab.co/oz" target="_blank">NPM registry</a>
+    <a href="https://www.npmjs.com/package/@codecollab.co/cli-ck" target="_blank">NPM registry</a>
   </p>
 </div>
 
 ---
 
-Oz is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React 19. A native PTY backend with a WebGL renderer, an agentic AI side-panel that runs against your own keys or fully local models, plus a code editor, file explorer, source control with a git graph, and a web preview pane built in. About 7-8 MB on disk. No telemetry. No account.
+cli-ck is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React 19. A native PTY backend with a WebGL renderer, an agentic AI side-panel that runs against your own keys or fully local models, plus a code editor, file explorer, source control with a git graph, and a web preview pane built in. About 7-8 MB on disk. No telemetry. No account.
 
 ## Screenshots
 
@@ -91,7 +91,7 @@ Oz is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React
 
 - **BYOK providers:** OpenAI, Anthropic, Google (Gemini), Groq, xAI (Grok), Cerebras, OpenRouter, DeepSeek, Mistral, plus any OpenAI-compatible endpoint
 - **Local / offline:** LM Studio, MLX, Ollama
-- **Agentic workflow:** plans, sub-agents, project memory via `OZ.md`, file read / write / edit / multi-edit / grep / glob, bash with approval gating, background processes
+- **Agentic workflow:** plans, sub-agents, project memory via `cli-ck.md`, file read / write / edit / multi-edit / grep / glob, bash with approval gating, background processes
 - **Composer:** snippets via `#handle`, files via `@path`, slash commands, voice input, attach-to-agent from explorer or selection
 - **Custom agents** with their own system prompt and tool subset
 - **Plan mode** for multi-step work, generates and confirms before doing
@@ -100,66 +100,68 @@ Oz is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and React
 
 ### Via NPM (Cross-platform Launcher) — recommended during the test phase
 
-You can install and launch the Oz desktop application directly from your shell using NPM or `npx`:
+You can install and launch the cli-ck desktop application directly from your shell using NPM or `npx`:
 
 ```bash
 # Run immediately without global installation
-npx @codecollab.co/oz
+npx @codecollab.co/cli-ck
 
 # Or install globally and run
-npm install -g @codecollab.co/oz
-oz
+npm install -g @codecollab.co/cli-ck
+cli-ck
 ```
 
-This is the smoothest option while Oz is still unsigned (see [Unsigned builds](#unsigned-builds) below). The launcher downloads the app over HTTPS — which avoids the macOS "damaged" / Windows SmartScreen prompts entirely — installs it into your Applications / Start Menu, and launches it detached. Extra commands:
+This is the smoothest option while cli-ck is still unsigned (see [Unsigned builds](#unsigned-builds) below). The launcher downloads the app over HTTPS — which avoids the macOS "damaged" / Windows SmartScreen prompts entirely — installs it into your Applications / Start Menu, and launches it detached. Extra commands:
 
 ```bash
-oz install     # download + install without launching
-oz uninstall   # remove the installed app and cached binaries
+cli-ck install     # download + install without launching
+cli-ck uninstall   # remove the installed app and cached binaries
 ```
 
 ### Desktop Installers
 
-Latest precompiled installers (DMG, MSI, DEB, RPM, AppImage) are on the [Releases](https://github.com/codecollab-co/oz/releases/latest) page. Oz auto-updates from there. If you download these through a browser, read [Unsigned builds](#unsigned-builds) first.
+Latest precompiled installers (DMG, MSI, DEB, RPM, AppImage) are on the [Releases](https://github.com/cli-ck/cli-ck/releases/latest) page. cli-ck auto-updates from there. If you download these through a browser, read [Unsigned builds](#unsigned-builds) first.
 
 ### Unsigned builds
 
-Oz is **not code-signed or notarized yet** (no paid Apple/Windows certificates during the test phase). The app itself is safe — the OS just can't verify a signature. The `npx @codecollab.co/oz` launcher above sidesteps all of this and is the recommended path. If you instead downloaded an installer from the Releases page through a browser, clear the OS block once:
+cli-ck is **not code-signed or notarized yet** (no paid Apple/Windows certificates during the test phase). The app itself is safe — the OS just can't verify a signature. The `npx @codecollab.co/cli-ck` launcher above sidesteps all of this and is the recommended path. If you instead downloaded an installer from the Releases page through a browser, clear the OS block once:
 
-- **macOS** ("Oz is damaged and can't be opened"): drag `Oz.app` into `/Applications`, then run:
+- **macOS** ("cli-ck is damaged and can't be opened"): drag `cli-ck.app` into `/Applications`, then run:
   ```bash
-  xattr -dr com.apple.quarantine /Applications/Oz.app
+  xattr -dr com.apple.quarantine /Applications/cli-ck.app
   ```
   Open it normally afterwards. (On Apple Silicon the "damaged" message is Gatekeeper refusing an un-notarized app, not a corrupt download.)
 - **Windows** ("Windows protected your PC"): click **More info** → **Run anyway**. Or right-click the installer → **Properties** → tick **Unblock** → **OK**.
-- **Linux**: `chmod +x Oz_*.AppImage` and ensure FUSE is installed. Without FUSE: `./Oz_*.AppImage --appimage-extract-and-run`. The `.deb` / `.rpm` packages don't need this.
+- **Linux**: `chmod +x cli-ck_*.AppImage` and ensure FUSE is installed. Without FUSE: `./cli-ck_*.AppImage --appimage-extract-and-run`. The `.deb` / `.rpm` packages don't need this.
 
 ### Windows notes
 
-- On first launch Windows shows "Windows protected your PC" because Oz isn't code-signed yet. Click **More info** then **Run anyway**.
+- On first launch Windows shows "Windows protected your PC" because cli-ck isn't code-signed yet. Click **More info** then **Run anyway**.
 - Default shell detection: `pwsh.exe` (PowerShell 7+) -> `powershell.exe` (Windows PowerShell 5.1) -> `cmd.exe`.
 - WSL is a first-class workspace environment, not a wrapped subprocess.
 
 ### Linux notes
 
-- **Arch / AUR:** `yay -S oz-bin` (or `paru`, etc.). Tracks the latest release.
-- **NixOS / Nix**: use the official flake — `nix profile install github:codecollab-co/oz` (non-NixOS), or import the flake and add `inputs.oz.packages.${pkgs.system}.oz` to `environment.systemPackages` (NixOS). The `nixosModules.oz` output is also available for a simpler setup.
-- **AppImage:** needs FUSE. Without it: `./Oz_*.AppImage --appimage-extract-and-run`. On Wayland with rendering glitches, try `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Otherwise the `.deb` / `.rpm` packages link against the system GTK stack and tend to be smoother.
+- **Arch / AUR:** `yay -S cli-ck-bin` (or `paru`, etc.). Tracks the latest release.
+- **NixOS / Nix**: use the official flake — `nix profile install github:cli-ck/cli-ck` (non-NixOS), or import the flake and add `inputs.cli-ck.packages.${pkgs.system}.cli-ck` to `environment.systemPackages` (NixOS). The `nixosModules.cli-ck` output is also available for a simpler setup.
+- **AppImage:** needs FUSE. Without it: `./cli-ck_*.AppImage --appimage-extract-and-run`. On Wayland with rendering glitches, try `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Otherwise the `.deb` / `.rpm` packages link against the system GTK stack and tend to be smoother.
 
 ## Configure AI
 
 1. Open **Settings -> AI**.
-2. Pick a provider and paste your API key. For local inference, point Oz at your LM Studio / MLX / Ollama endpoint.
+2. Pick a provider and paste your API key. For local inference, point cli-ck at your LM Studio / MLX / Ollama endpoint.
 3. Keys are written to the OS keychain via `keyring`. They never touch disk or localStorage.
 
 ## Build from source
 
 **Prerequisites**
+
 - Rust (stable), https://rustup.rs
 - Node 20+ and [pnpm](https://pnpm.io)
 - Tauri prerequisites for your platform, https://tauri.app/start/prerequisites/
 
 **Run**
+
 ```bash
 pnpm install
 pnpm tauri dev          # development
@@ -167,6 +169,7 @@ pnpm tauri build        # production bundle
 ```
 
 **Checks**
+
 ```bash
 pnpm exec tsc --noEmit                                            # frontend type-check
 cd src-tauri && cargo clippy --all-targets --locked -D warnings   # Rust lint (matches CI)
@@ -183,16 +186,16 @@ Issues and PRs are welcome! Feel free to open issues, suggest features, or submi
 
 ## License
 
-Oz is licensed under the Apache-2.0 License. For more information on our dependencies, see [Apache License 2.0](LICENSE).
+cli-ck is licensed under the Apache-2.0 License. For more information on our dependencies, see [Apache License 2.0](LICENSE).
 
 ## Star history
 
 <div align="center">
-  <a href="https://www.star-history.com/#codecollab-co/oz&Date">
+  <a href="https://www.star-history.com/#cli-ck/cli-ck&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=codecollab-co/oz&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=codecollab-co/oz&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=codecollab-co/oz&type=Date" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=cli-ck/cli-ck&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=cli-ck/cli-ck&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=cli-ck/cli-ck&type=Date" />
     </picture>
   </a>
 </div>

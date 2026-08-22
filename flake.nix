@@ -1,5 +1,5 @@
 {
-  description = "Oz - open-source lightweight cross-platform AI-native terminal (ADE)";
+  description = "cli-ck - open-source lightweight cross-platform AI-native terminal (ADE)";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -9,16 +9,16 @@
     packages = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
     in {
-      oz = pkgs.callPackage ./nix/package.nix { };
-      default = self.packages.${system}.oz;
+      cli-ck = pkgs.callPackage ./nix/package.nix { };
+      default = self.packages.${system}.cli-ck;
     });
 
-    nixosModules.oz = { pkgs, ... }: {
-      environment.systemPackages = [ self.packages.${pkgs.system}.oz ];
+    nixosModules.cli-ck = { pkgs, ... }: {
+      environment.systemPackages = [ self.packages.${pkgs.system}.cli-ck ];
     };
 
-    darwinModules.oz = { pkgs, ... }: {
-      environment.systemPackages = [ self.packages.${pkgs.system}.oz ];
+    darwinModules.cli-ck = { pkgs, ... }: {
+      environment.systemPackages = [ self.packages.${pkgs.system}.cli-ck ];
     };
   };
 }

@@ -1,10 +1,10 @@
-# oz-shell-integration (fish)
+# cli-ck-shell-integration (fish)
 # Emits OSC 7 (cwd) + OSC 133 A/B/C/D so the host tracks cwd and prompt
 # boundaries without re-parsing the prompt. fish 4.0+ writes its own OSC 133
-# A/B (the `mark-prompt` feature); Oz disables it at spawn via
+# A/B (the `mark-prompt` feature); cli-ck disables it at spawn via
 # fish_features=no-mark-prompt so these markers aren't emitted twice.
 
-# Installed into conf.d, which every fish session sources; only Oz-spawned
+# Installed into conf.d, which every fish session sources; only cli-ck-spawned
 # shells (OZ_TERMINAL=1) may get their prompt wrapped.
 if not set -q OZ_TERMINAL
     exit 0
@@ -14,7 +14,7 @@ if set -q __OZ_HOOKS_LOADED
 end
 set -g __OZ_HOOKS_LOADED 1
 
-# Oz is a clean terminal; drop fish's default startup greeting. A user who
+# cli-ck is a clean terminal; drop fish's default startup greeting. A user who
 # sets their own in config.fish (sourced after this) keeps it.
 function fish_greeting
 end
@@ -50,10 +50,10 @@ function __oz_capture_user_prompt
     functions -c fish_prompt __oz_user_prompt
 end
 
-# Wrapped so `fish -C __oz_install_prompt` can re-run it AFTER config.fish,
+# Wrapped so `fish -C __cli_ck_install_prompt` can re-run it AFTER config.fish,
 # where a framework prompt (starship etc.) would otherwise override fish_prompt
 # and drop our markers.
-function __oz_install_prompt
+function __cli_ck_install_prompt
     __oz_capture_user_prompt
     if set -q OZ_BLOCKS
         function fish_right_prompt
@@ -86,7 +86,7 @@ function __oz_install_prompt
         printf '\e]133;B\e\\'
     end
 end
-__oz_install_prompt
+__cli_ck_install_prompt
 
 function __oz_preexec --on-event fish_preexec
     set -g __oz_block_seen 1

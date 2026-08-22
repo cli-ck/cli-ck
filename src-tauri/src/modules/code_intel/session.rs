@@ -8,14 +8,14 @@ use tokio::sync::oneshot;
 
 /// The `binaries/<name>` string tauri.conf.json's `bundle.externalBin` and
 /// the `code-intel` capability both key on - all three must agree.
-const SIDECAR_NAME: &str = "binaries/oz-code-intel";
+const SIDECAR_NAME: &str = "binaries/cli-ck-code-intel";
 
 type PendingMap = Arc<Mutex<HashMap<u64, oneshot::Sender<serde_json::Value>>>>;
 
-/// One running `oz-code-intel` helper process plus the request/response
+/// One running `cli-ck-code-intel` helper process plus the request/response
 /// bookkeeping needed to talk to it.
 ///
-/// Deliberately has no compile-time dependency on the `oz-code-intel` repo's
+/// Deliberately has no compile-time dependency on the `cli-ck-code-intel` repo's
 /// `protocol` crate - the two repos version independently (see that repo's
 /// ROADMAP.md), so this only ever speaks its wire format (newline-delimited
 /// JSON, `{"id": u64, "payload": {"type": "...", ...}}`) via `serde_json::Value`.

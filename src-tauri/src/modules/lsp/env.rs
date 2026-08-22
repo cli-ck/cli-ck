@@ -62,7 +62,7 @@ fn capture_login_env() -> Option<HashMap<String, String>> {
     let mut stdout = child.take_stdout()?;
     let (tx, rx) = mpsc::channel();
     std::thread::Builder::new()
-        .name("oz-lsp-env-capture".into())
+        .name("cli-ck-lsp-env-capture".into())
         .spawn(move || {
             let mut buf = Vec::with_capacity(8 * 1024);
             let _ = stdout.read_to_end(&mut buf);
@@ -115,6 +115,6 @@ mod tests {
     fn resolve_binary_rejects_empty_and_missing() {
         assert!(resolve_binary("").is_none());
         assert!(resolve_binary("   ").is_none());
-        assert!(resolve_binary("oz-definitely-not-a-real-binary").is_none());
+        assert!(resolve_binary("cli-ck-definitely-not-a-real-binary").is_none());
     }
 }

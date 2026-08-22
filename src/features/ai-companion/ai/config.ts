@@ -1,4 +1,4 @@
-export const KEYRING_SERVICE = "oz-ai";
+export const KEYRING_SERVICE = "cli-ck-ai";
 
 export type ProviderId =
   | "openai"
@@ -259,6 +259,24 @@ export const MODELS = [
     description: "Tuned for code and tool use.",
     capabilities: { intelligence: 4, speed: 4, cost: 3 },
     tags: ["tools", "coding"],
+  },
+  {
+    id: "gpt-4o",
+    provider: "openai",
+    label: "GPT-4o",
+    hint: "Previous",
+    description: "Previous-generation flagship, still widely available.",
+    capabilities: { intelligence: 4, speed: 3, cost: 3 },
+    tags: ["vision", "tools"],
+  },
+  {
+    id: "gpt-4o-mini",
+    provider: "openai",
+    label: "GPT-4o mini",
+    hint: "Previous",
+    description: "Previous-generation fast, low-cost tier.",
+    capabilities: { intelligence: 3, speed: 4, cost: 4 },
+    tags: ["vision", "tools"],
   },
 
   // ── Anthropic ─────────────────────────────────────────────────────────────
@@ -644,6 +662,8 @@ export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "gpt-5.4-mini": 400_000,
   "gpt-5.4-nano": 400_000,
   "gpt-5.3-codex": 400_000,
+  "gpt-4o": 128_000,
+  "gpt-4o-mini": 128_000,
   "claude-sonnet-5": 1_000_000,
   "claude-opus-4-7": 200_000,
   "claude-opus-4-8": 1_000_000,
@@ -702,6 +722,8 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5.4-mini": { input: 0.4, output: 1.6, cacheRead: 0.04 },
   "gpt-5.4-nano": { input: 0.1, output: 0.4, cacheRead: 0.01 },
   "gpt-5.3-codex": { input: 1.5, output: 6, cacheRead: 0.15 },
+  "gpt-4o": { input: 2.5, output: 10, cacheRead: 1.25 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6, cacheRead: 0.075 },
   "claude-sonnet-5": { input: 3, output: 15, cacheRead: 0.3 },
   "claude-opus-4-7": { input: 15, output: 75, cacheRead: 1.5 },
   "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
@@ -800,7 +822,7 @@ export const OPENAI_COMPATIBLE_DEFAULT_BASE_URL = "";
 export const MAX_AGENT_STEPS = 24;
 export const TERMINAL_BUFFER_LINES = 300;
 
-export const SYSTEM_PROMPT = `You are Oz, an AI agent embedded in a developer terminal emulator. You are a hands-on engineer, not a chat bot — your job is to *do* the work, not narrate it.
+export const SYSTEM_PROMPT = `You are cli-ck, an AI agent embedded in a developer terminal emulator. You are a hands-on engineer, not a chat bot — your job is to *do* the work, not narrate it.
 
 # Environment
 Every turn carries a short <env> block (prepended to the latest user message): workspace_root, active_terminal_cwd, optionally active_file. Treat it as ground truth — never ask the user where they are. The terminal scrollback is NOT auto-injected; call get_terminal_output only when the user references "this error" / "the last command" or you genuinely need to interpret recent output.
@@ -851,7 +873,7 @@ Every turn carries a short <env> block (prepended to the latest user message): w
 - Code blocks always carry a language fence.
 - Refused reads on sensitive files (.env, .ssh, credentials) are final — don't retry.`;
 
-export const SYSTEM_PROMPT_LITE = `You are Oz, an AI agent in a developer terminal. Each turn carries an <env> block (workspace_root, active_terminal_cwd, optional active_file) prepended to the user's message — treat as ground truth.
+export const SYSTEM_PROMPT_LITE = `You are cli-ck, an AI agent in a developer terminal. Each turn carries an <env> block (workspace_root, active_terminal_cwd, optional active_file) prepended to the user's message — treat as ground truth.
 
 Tools: read_file, list_directory, grep, glob, get_terminal_output, edit, multi_edit, write_file, create_directory, bash_run, bash_background, bash_logs, bash_list, bash_kill, suggest_command, open_preview.
 
@@ -863,6 +885,7 @@ Rules:
 - Prefer grep over scanning many files; read_file defaults to 25KB / 2000 lines (use offset/limit for larger).
 - edit/multi_edit need a prior read_file on the path. write_file for new/tiny files only.
 - bash_list before any dev server; reuse if already running.
+- To verify a fix, run the file directly (\`node file.js\` / equivalent) via bash_run — don't assume a test framework (npm/jest/pytest) is set up unless you've already seen its config.
 - Concise. No filler, no recap of the diff.`;
 
 const LITE_SYSTEM_PROMPT_MODEL_IDS = new Set<string>([
@@ -878,6 +901,7 @@ const LITE_SYSTEM_PROMPT_MODEL_IDS = new Set<string>([
   "llama-3.3-70b-versatile",
   "qwen-3-32b",
   "grok-build-0.1",
+  "gpt-4o-mini",
 ]);
 
 export function selectSystemPrompt(modelId: string | undefined): string {

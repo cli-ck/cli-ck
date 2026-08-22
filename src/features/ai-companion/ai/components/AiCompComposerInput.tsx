@@ -257,7 +257,7 @@ export function AiCompComposerInput() {
                   c.submit();
                 }
               }}
-              placeholder="Ask Oz anything   -   # for snippets and commands, @ for files"
+              placeholder="Ask cli-ck anything   -   # for snippets and commands, @ for files"
               rows={1}
               className={cn(
                 "max-h-40 flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none",
@@ -288,7 +288,7 @@ export function AiCompComposerInput() {
       </Popover>
 
       {voiceRow.mounted && (
-        <div data-state={voiceRow.state} className="oz-reveal">
+        <div data-state={voiceRow.state} className="cli-ck-reveal">
           <div className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
             {c.voice.recording ? (
               <span className="size-1.5 animate-pulse rounded-full bg-destructive" />

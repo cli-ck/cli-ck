@@ -1,4 +1,4 @@
-# oz-shell-integration (zlogin)
+# cli-ck-shell-integration (zlogin)
 #
 # This is the LAST init file zsh runs before entering the prompt loop, so its
 # exit status becomes `$?` for the very first prompt. Without the trailing `:`,

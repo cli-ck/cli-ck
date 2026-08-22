@@ -1,16 +1,16 @@
 # Roadmap
 
-Oz direction, what's shipped, what's coming, and what's deliberately out of scope.
+cli-ck direction, what's shipped, what's coming, and what's deliberately out of scope.
 
-This file is updated as direction evolves. For day-to-day work, see [GitHub Issues](https://github.com/codecollab-co/oz/issues) and the Projects board.
+This file is updated as direction evolves. For day-to-day work, see [GitHub Issues](https://github.com/cli-ck/cli-ck/issues) and the Projects board.
 
-## What Oz is
+## What cli-ck is
 
-Oz is a fast, lightweight, AI-native terminal (ADE - agentic development environment). It pairs a native PTY backend with a modern UI: multi-tab terminals, an integrated code editor, a file explorer, source control, and a first-class AI agent system that works with your own API keys or fully local models. Under 10 MB on disk. No telemetry. Keys stored in the OS keychain.
+cli-ck is a fast, lightweight, AI-native terminal (ADE - agentic development environment). It pairs a native PTY backend with a modern UI: multi-tab terminals, an integrated code editor, a file explorer, source control, and a first-class AI agent system that works with your own API keys or fully local models. Under 10 MB on disk. No telemetry. Keys stored in the OS keychain.
 
 The product is opinionated: terminal-first, AI as a primitive (not a sidebar), lightweight always, cross-platform without compromise.
 
-## What Oz is not
+## What cli-ck is not
 
 - Not a full IDE replacement. Heavy IDE features that overlap with VS Code / Cursor / Zed are out of scope.
 - Not a browser. Web preview exists for local dev servers and lightweight doc viewing only.
@@ -102,7 +102,7 @@ The themes below frame every scope decision.
 - [ ] Themes and customizations (terminal themes, UI accents, keybindings, layout)
 - [ ] AI autocomplete improvements in editor (project-aware context, lower latency)
 - [ ] Drag and drop in terminal (files as quoted paths, AI panel as context)
-- [ ] AI agent meta-orchestration (Oz agent spawning and managing external coding agents like Claude Code / OpenCode)
+- [ ] AI agent meta-orchestration (cli-ck agent spawning and managing external coding agents like Claude Code / OpenCode)
 - [ ] More slash commands and skills
 - [ ] Approval flow improvements (YOLO / auto-approve, project-scoped policies, per-tool trust)
 - [ ] Persistent terminal sessions and layout restore
@@ -132,15 +132,15 @@ See `good-first-issue` and `help-wanted` labels on GitHub Issues for concrete ta
 
 ## Out of scope
 
-Categories that will not be built into Oz. Individual feature requests in these categories will be closed.
+Categories that will not be built into cli-ck. Individual feature requests in these categories will be closed.
 
 - **Heavy IDE features.** Integrated debuggers, refactoring engines, project-wide search at IDE scale. Use a real editor for those. (LSP — diagnostics/hover/definition/completion/format — is now supported; deeper IDE surfaces remain out of scope.)
-- **Notebook and document workspaces.** Anything that turns Oz into a document host rather than a terminal.
+- **Notebook and document workspaces.** Anything that turns cli-ck into a document host rather than a terminal.
 - **Package manager and toolchain UIs.** Use `npm`, `pip`, `cargo` and friends in the terminal directly.
 - **Full web browser features.** Preview pane stays scoped to local dev servers and lightweight doc viewing. No navigation history, no bookmarks, no dev tools.
-- **Telemetry, analytics, accounts.** Oz stays BYOK and offline-respectful.
+- **Telemetry, analytics, accounts.** cli-ck stays BYOK and offline-respectful.
 - **Extension marketplaces at IDE scale.** Narrowly-scoped AI tool / skill bundles may happen eventually. Arbitrary UI or behavior extensions will not.
-- **Third-party subscription session bridges.** Forwarding cloud subscription auth (provider-managed login sessions) through Oz is not technically feasible for third-party clients.
+- **Third-party subscription session bridges.** Forwarding cloud subscription auth (provider-managed login sessions) through cli-ck is not technically feasible for third-party clients.
 
 ## Decision authority
 

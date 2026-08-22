@@ -1,0 +1,34 @@
+name: Publish npm launcher
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish @codecollab.co/cli-ck
+        working-directory: npm-wrapper
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "$PKG_NAME@$PKG_VERSION" version >/dev/null 2>&1; then
+            echo "Already published: $PKG_NAME@$PKG_VERSION"
+          else
+            npm publish --access public
+          fi
+
+      - name: Deprecate @codecollab.co/oz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm deprecate @codecollab.co/oz "Package renamed to @codecollab.co/cli-ck. Use: npx @codecollab.co/cli-ck"

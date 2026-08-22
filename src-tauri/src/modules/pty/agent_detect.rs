@@ -8,7 +8,7 @@ const OSC_MAX: usize = 2048;
 const DEFAULT_AGENTS: &[&str] = &["claude", "codex"];
 
 // OSC 777 marker our Claude Code hooks emit via `terminalSequence`.
-const OZ_MARKER: &[u8] = b"notify;Oz;";
+const OZ_MARKER: &[u8] = b"notify;cli-ck;";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum State {
@@ -310,17 +310,17 @@ mod tests {
     fn oz_marker_drives_status() {
         let mut d = AgentDetector::new();
         run(&mut d, &osc("133;C;claude"));
-        assert_eq!(run(&mut d, &osc("777;notify;Oz;attention")), vec![Transition::Attention]);
-        assert_eq!(run(&mut d, &osc("777;notify;Oz;working")), vec![Transition::Working]);
-        assert!(run(&mut d, &osc("777;notify;Oz;working")).is_empty());
-        assert_eq!(run(&mut d, &osc("777;notify;Oz;finished")), vec![Transition::Finished]);
+        assert_eq!(run(&mut d, &osc("777;notify;cli-ck;attention")), vec![Transition::Attention]);
+        assert_eq!(run(&mut d, &osc("777;notify;cli-ck;working")), vec![Transition::Working]);
+        assert!(run(&mut d, &osc("777;notify;cli-ck;working")).is_empty());
+        assert_eq!(run(&mut d, &osc("777;notify;cli-ck;finished")), vec![Transition::Finished]);
     }
 
     #[test]
     fn oz_marker_auto_arms_without_preexec() {
         let mut d = AgentDetector::new();
         assert_eq!(
-            run(&mut d, &osc("777;notify;Oz;attention")),
+            run(&mut d, &osc("777;notify;cli-ck;attention")),
             vec![started("claude"), Transition::Attention]
         );
     }
@@ -383,6 +383,6 @@ mod tests {
         seq.extend(std::iter::repeat_n(b'x', OSC_MAX + 100));
         seq.extend_from_slice(&[ESC, ST_FINAL]);
         assert!(run(&mut d, &seq).is_empty());
-        assert_eq!(run(&mut d, &osc("777;notify;Oz;attention")), vec![Transition::Attention]);
+        assert_eq!(run(&mut d, &osc("777;notify;cli-ck;attention")), vec![Transition::Attention]);
     }
 }

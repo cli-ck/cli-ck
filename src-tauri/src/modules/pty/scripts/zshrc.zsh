@@ -1,4 +1,4 @@
-# oz-shell-integration (zshrc)
+# cli-ck-shell-integration (zshrc)
 #
 # Emits OSC 7 (cwd) + OSC 133 A/B/C/D (prompt-start / prompt-end / pre-exec /
 # command-done-with-exit-code) so the host can detect command boundaries and
@@ -100,7 +100,7 @@ if [[ -z "$__OZ_HOOKS_LOADED" ]]; then
 fi
 :
 
-# --- Oz add-on customizations ---
+# --- cli-ck add-on customizations ---
 
 # 1. Oh My Zsh-like robbyrussell prompt
 autoload -Uz vcs_info

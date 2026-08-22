@@ -1,4 +1,4 @@
-# oz-shell-integration (zshenv)
+# cli-ck-shell-integration (zshenv)
 #
 # Trailing `:` is load-bearing — without it, a missing user .zshenv leaves $?=1,
 # which propagates through the rest of init and ultimately into the first

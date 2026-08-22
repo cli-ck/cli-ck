@@ -43,12 +43,12 @@ export function useThemeFileEditing({ tabsRef, openFileTab }: Params) {
                 return;
               const parsed = parseThemeFile(res.content);
               if (!parsed.ok) {
-                console.warn("[oz] theme not applied:", parsed.error);
+                console.warn("[cli-ck] theme not applied:", parsed.error);
                 return;
               }
               await saveCustomTheme(parsed.theme);
             } catch (e) {
-              console.warn("[oz] theme ingest failed:", e);
+              console.warn("[cli-ck] theme ingest failed:", e);
             }
           })();
         },

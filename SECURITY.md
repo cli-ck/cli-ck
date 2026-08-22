@@ -1,10 +1,10 @@
 # Security
 
-Oz runs shells, reads/writes files, and talks to AI providers — so security bugs matter. If you find one, please tell us before posting it publicly.
+cli-ck runs shells, reads/writes files, and talks to AI providers — so security bugs matter. If you find one, please tell us before posting it publicly.
 
 ## Reporting
 
-Email **security@oz.app**. Include:
+Email **security@cli-ck.app**. Include:
 
 - What the issue is and what it lets an attacker do
 - Steps to reproduce (a small PoC is great)
@@ -22,7 +22,7 @@ Until `1.0.0`, only the latest minor gets security fixes. Right now that's `0.5.
 
 - The Rust backend in `src-tauri/` (PTY, FS, IPC, plugins)
 - The frontend in `src/` — anywhere untrusted input lands (terminal output, file content, AI tool results, credentials)
-- Release artifacts on GitHub and `oz.app`
+- Release artifacts on GitHub and `cli-ck.app`
 - The auto-updater
 
 ## What's not
@@ -34,13 +34,13 @@ Until `1.0.0`, only the latest minor gets security fixes. Right now that's `0.5.
 ## What we do to keep things safe
 
 - **API keys** live in the OS keychain via `keyring` — not on disk, not in `localStorage`, not in logs.
-- **No telemetry.** Oz only talks to the network when you ask it to (AI requests, update checks, web preview).
+- **No telemetry.** cli-ck only talks to the network when you ask it to (AI requests, update checks, web preview).
 - **AI tool approval.** File writes and shell commands from the agent need your OK before they run.
 - **No Node in the renderer.** The frontend only reaches the host through the allow-listed Tauri commands.
 - **Signed releases.** Updates are verified before they're applied.
 
 ## What we can't promise
 
-- Oz runs whatever you (or the agent) tell it to run, with your permissions. That's kind of the point of a terminal.
+- cli-ck runs whatever you (or the agent) tell it to run, with your permissions. That's kind of the point of a terminal.
 - AI providers see whatever you send them. Read their retention policies.
-- Local LLM endpoints (LM Studio, OpenAI-compatible) are trusted at the network level — only point Oz at servers you control.
+- Local LLM endpoints (LM Studio, OpenAI-compatible) are trusted at the network level — only point cli-ck at servers you control.

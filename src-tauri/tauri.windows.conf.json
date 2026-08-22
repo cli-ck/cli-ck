@@ -4,7 +4,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Oz",
+        "title": "cli-ck",
         "decorations": false,
         "transparent": true,
         "visible": false,

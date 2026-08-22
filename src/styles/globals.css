@@ -165,7 +165,7 @@
   --app-zoom: 1;
 }
 
-html[data-chrome="borderless"] .oz-bg-surface {
+html[data-chrome="borderless"] .cli-ck-bg-surface {
   border-radius: 12px;
 }
 .zoom-content {
@@ -325,7 +325,7 @@ html *::-webkit-scrollbar {
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes oz-collapsible-down {
+@keyframes cli-ck-collapsible-down {
   from {
     height: 0;
     opacity: 0;
@@ -336,7 +336,7 @@ html *::-webkit-scrollbar {
   }
 }
 
-@keyframes oz-collapsible-up {
+@keyframes cli-ck-collapsible-up {
   from {
     height: var(--radix-collapsible-content-height);
     opacity: 1;
@@ -347,20 +347,20 @@ html *::-webkit-scrollbar {
   }
 }
 
-.oz-collapsible-content {
+.cli-ck-collapsible-content {
   overflow: hidden;
 }
-.oz-collapsible-content[data-state="open"] {
-  animation: oz-collapsible-down var(--dur-base) var(--ease-soft);
+.cli-ck-collapsible-content[data-state="open"] {
+  animation: cli-ck-collapsible-down var(--dur-base) var(--ease-soft);
 }
-.oz-collapsible-content[data-state="closed"] {
-  animation: oz-collapsible-up var(--dur-base) var(--ease-soft);
+.cli-ck-collapsible-content[data-state="closed"] {
+  animation: cli-ck-collapsible-up var(--dur-base) var(--ease-soft);
 }
 
 /* Height auto<->0 reveal without JS measuring: animate the grid track from 0fr
  * to 1fr. The inner child must be the sole grid row with min-height:0. Used by
  * the docked AI input bar and the composer voice-status row. */
-.oz-reveal {
+.cli-ck-reveal {
   display: grid;
   grid-template-rows: 0fr;
   transition:
@@ -368,16 +368,16 @@ html *::-webkit-scrollbar {
     opacity var(--dur-base) var(--ease-premium);
   opacity: 0;
 }
-.oz-reveal[data-state="open"] {
+.cli-ck-reveal[data-state="open"] {
   grid-template-rows: 1fr;
   opacity: 1;
 }
-.oz-reveal > * {
+.cli-ck-reveal > * {
   min-height: 0;
   overflow: hidden;
 }
 
-@keyframes oz-panel-in {
+@keyframes cli-ck-panel-in {
   from {
     opacity: 0;
     transform: translateX(-40px);
@@ -387,11 +387,11 @@ html *::-webkit-scrollbar {
     transform: translateX(0);
   }
 }
-.oz-panel-in {
-  animation: oz-panel-in var(--dur-slow) var(--ease-premium);
+.cli-ck-panel-in {
+  animation: cli-ck-panel-in var(--dur-slow) var(--ease-premium);
 }
 
-@keyframes oz-tab-in {
+@keyframes cli-ck-tab-in {
   from {
     opacity: 0;
     transform: scale(0.86);
@@ -401,13 +401,13 @@ html *::-webkit-scrollbar {
     transform: scale(1);
   }
 }
-.oz-tab-in {
-  animation: oz-tab-in var(--dur-base) var(--ease-premium);
+.cli-ck-tab-in {
+  animation: cli-ck-tab-in var(--dur-base) var(--ease-premium);
 }
 
 /* Text shimmer loop (replaces motion background-position animation). Driven by
  * --shimmer-duration / --shimmer-spread set inline per instance. */
-@keyframes oz-shimmer {
+@keyframes cli-ck-shimmer {
   from {
     background-position: 100% center;
   }
@@ -415,7 +415,7 @@ html *::-webkit-scrollbar {
     background-position: 0% center;
   }
 }
-.oz-shimmer {
+.cli-ck-shimmer {
   background-repeat: no-repeat, padding-box;
   background-size:
     250% 100%,
@@ -431,7 +431,7 @@ html *::-webkit-scrollbar {
       var(--color-muted-foreground),
       var(--color-muted-foreground)
     );
-  animation: oz-shimmer var(--shimmer-duration, 2s) linear infinite;
+  animation: cli-ck-shimmer var(--shimmer-duration, 2s) linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -440,10 +440,10 @@ html *::-webkit-scrollbar {
     --dur-base: 0.01ms;
     --dur-slow: 0.01ms;
   }
-  .oz-reveal {
+  .cli-ck-reveal {
     transition: none;
   }
-  .oz-shimmer {
+  .cli-ck-shimmer {
     animation: none;
     background-position: 0% center;
   }

@@ -27,7 +27,7 @@ stats.html
 
 *.tsbuildinfo
 
-# Sidecar binaries (oz-code-intel): fetched from that repo's own release
+# Sidecar binaries (cli-ck-code-intel): fetched from that repo's own release
 # artifacts (or built locally for dev), never committed here. See
 # src-tauri/binaries/README.md.
 /src-tauri/binaries/*

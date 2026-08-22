@@ -14,7 +14,7 @@ export function ensureAgentActivityListener(
   onExited = exited;
   if (bound || typeof window === "undefined") return;
   bound = true;
-  void listen<AgentSignal>("oz:agent-signal", (e) => {
+  void listen<AgentSignal>("cli-ck:agent-signal", (e) => {
     if (e.payload.kind === "started") {
       active.add(e.payload.id);
     } else if (e.payload.kind === "exited") {

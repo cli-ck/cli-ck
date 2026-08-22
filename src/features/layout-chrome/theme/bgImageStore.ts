@@ -1,4 +1,4 @@
-const DB_NAME = "oz-bg-images";
+const DB_NAME = "cli-ck-bg-images";
 const STORE = "images";
 const VERSION = 1;
 

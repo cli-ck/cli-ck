@@ -82,7 +82,7 @@ function BackgroundImage({ fastImageId }: { fastImageId: string | null }) {
   return createPortal(
     <div
       aria-hidden
-      className="oz-bg-surface"
+      className="cli-ck-bg-surface"
       style={{
         position: "fixed",
         inset: 0,

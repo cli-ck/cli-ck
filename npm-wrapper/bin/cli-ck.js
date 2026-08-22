@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 
 /*
- * Oz cross-platform launcher / installer.
+ * cli-ck cross-platform launcher / installer.
  *
- * Oz is not code-signed or notarized yet (no paid Apple / Windows certificates
+ * cli-ck is not code-signed or notarized yet (no paid Apple / Windows certificates
  * during the test phase). Browser-downloaded installers therefore get blocked by
- * Gatekeeper ("Oz is damaged") on macOS and SmartScreen on Windows, because the
+ * Gatekeeper ("cli-ck is damaged") on macOS and SmartScreen on Windows, because the
  * browser tags them with a quarantine flag / Mark-of-the-Web.
  *
  * This launcher sidesteps that entirely: it fetches the release archive over
  * plain HTTPS (Node, not a browser), which never applies those tags. It then
- * installs Oz where the OS expects an app to live so it shows up like a normal
+ * installs cli-ck where the OS expects an app to live so it shows up like a normal
  * installed application, and launches it detached so it does not hold the
  * terminal hostage.
  *
- *   oz            download (first run), install, and launch
- *   oz install    download and install only (no launch)
- *   oz uninstall  remove the installed app and cached binaries
+ *   cli-ck            download (first run), install, and launch
+ *   cli-ck install    download and install only (no launch)
+ *   cli-ck uninstall  remove the installed app and cached binaries
  */
 
 const fs = require('fs');
@@ -26,31 +26,24 @@ const { spawn, spawnSync, execSync } = require('child_process');
 const https = require('https');
 
 const VERSION = require('../package.json').version;
-const REPO = 'codecollab-co/oz';
+const {
+  PRODUCT,
+  REPO,
+  artifactName: resolveArtifactName,
+  binaryRelPath: resolveBinaryRelPath,
+  downloadUrl,
+} = require('../lib/release-artifacts');
 
 const homeDir = os.homedir();
-const ozDir = path.join(homeDir, '.oz');
-const binDir = path.join(ozDir, 'bin', VERSION);
+const installDir = path.join(homeDir, `.${PRODUCT}`);
+const binDir = path.join(installDir, 'bin', VERSION);
 
 const platform = os.platform();
 const arch = os.arch();
+const binaryRelPath = resolveBinaryRelPath(platform);
+const artifactName = resolveArtifactName({ platform, arch, version: VERSION });
 
-let binaryRelPath = '';
-let artifactName = '';
-
-if (platform === 'darwin') {
-  binaryRelPath = 'Oz.app/Contents/MacOS/oz';
-  // Tauri names the macOS updater bundle with the version, e.g. Oz_0.2.3_aarch64.app.tar.gz
-  artifactName = arch === 'arm64'
-    ? `Oz_${VERSION}_aarch64.app.tar.gz`
-    : `Oz_${VERSION}_x64.app.tar.gz`;
-} else if (platform === 'linux') {
-  binaryRelPath = 'oz';
-  artifactName = 'oz_linux_x64.zip';
-} else if (platform === 'win32') {
-  binaryRelPath = 'oz.exe';
-  artifactName = 'oz_windows_x64.zip';
-} else {
+if (!binaryRelPath || !artifactName) {
   console.error(`Unsupported platform: ${platform}`);
   process.exit(1);
 }
@@ -65,17 +58,29 @@ if (subcommand === 'uninstall') {
 } else if (subcommand === 'install') {
   ensureBinary(() => {
     const target = installDesktop();
-    console.log(`\nOz installed: ${target}`);
-    console.log('Launch it from your applications menu, or run `oz`.');
-    console.log('Remove it any time with `oz uninstall`.');
+    warnLeftoverOz();
+    console.log(`\ncli-ck installed: ${target}`);
+    console.log('Launch it from your applications menu, or run `cli-ck`.');
+    console.log('Remove it any time with `cli-ck uninstall`.');
   });
 } else {
   ensureBinary((downloaded) => {
     // Reuse an existing install unless we just pulled a new version.
     const existing = installedTarget();
     const target = !downloaded && existing ? existing : installDesktop();
+    warnLeftoverOz();
     launch(target, argv);
   });
+}
+
+function warnLeftoverOz() {
+  if (platform !== 'darwin') return;
+  const leftover = '/Applications/Oz.app';
+  if (fs.existsSync(leftover)) {
+    console.warn(
+      `Note: ${leftover} is still installed from @codecollab.co/oz. Quit that app and delete it so Settings → About is not the old Oz build.`,
+    );
+  }
 }
 
 // ------------------------------------------------------------------ download
@@ -89,10 +94,10 @@ function ensureBinary(done) {
 }
 
 function downloadAndExtract(done) {
-  console.log(`Oz v${VERSION} is not downloaded yet. Fetching for ${platform}-${arch}...`);
+  console.log(`cli-ck v${VERSION} is not downloaded yet. Fetching for ${platform}-${arch}...`);
   fs.mkdirSync(binDir, { recursive: true });
 
-  const url = `https://github.com/${REPO}/releases/download/v${VERSION}/${artifactName}`;
+  const url = downloadUrl({ repo: REPO, version: VERSION, artifact: artifactName });
   const archivePath = path.join(binDir, artifactName);
   const file = fs.createWriteStream(archivePath);
 
@@ -103,7 +108,11 @@ function downloadAndExtract(done) {
         return;
       }
       if (response.statusCode !== 200) {
-        console.error(`Failed to download binary: HTTP ${response.statusCode}`);
+        console.error(`Failed to download ${artifactName}: HTTP ${response.statusCode}`);
+        console.error(`URL: ${url}`);
+        console.error(
+          'A matching cli-ck GitHub release asset is required. v0.2.5 shipped Oz-branded files, so npm cannot install cli-ck until a newer tagged release publishes cli-ck_* artifacts.',
+        );
         process.exit(1);
       }
 
@@ -167,8 +176,8 @@ function installDesktop() {
 
 function installedTarget() {
   if (platform === 'darwin') {
-    const inApps = '/Applications/Oz.app';
-    const inHome = path.join(homeDir, 'Applications', 'Oz.app');
+    const inApps = `/Applications/${PRODUCT}.app`;
+    const inHome = path.join(homeDir, 'Applications', `${PRODUCT}.app`);
     if (fs.existsSync(inApps)) return inApps;
     if (fs.existsSync(inHome)) return inHome;
     return null;
@@ -186,12 +195,22 @@ function installedTarget() {
 // an installed app, strip the quarantine flag, and repair the ad-hoc signature
 // if extraction invalidated it (that broken signature is the "damaged" cause).
 function installMac() {
-  const source = path.join(binDir, 'Oz.app');
+  const source = path.join(binDir, `${PRODUCT}.app`);
+  if (!fs.existsSync(source)) {
+    const leftoverOz = path.join(binDir, 'Oz.app');
+    if (fs.existsSync(leftoverOz)) {
+      console.error('Downloaded archive still contains Oz.app, not cli-ck.app.');
+      console.error('The GitHub release for this version was built before the rename.');
+      process.exit(1);
+    }
+    console.error(`Expected ${source} after extract, but it is missing.`);
+    process.exit(1);
+  }
   sanitizeMacApp(source);
 
   const candidates = [
-    '/Applications/Oz.app',
-    path.join(homeDir, 'Applications', 'Oz.app'),
+    `/Applications/${PRODUCT}.app`,
+    path.join(homeDir, 'Applications', `${PRODUCT}.app`),
   ];
 
   for (const dest of candidates) {
@@ -226,10 +245,10 @@ function sanitizeMacApp(app) {
 
 function startMenuShortcut() {
   const appData = process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming');
-  return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Oz.lnk');
+  return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'cli-ck.lnk');
 }
 
-// Windows: clear any Mark-of-the-Web and drop a Start Menu shortcut so Oz is
+// Windows: clear any Mark-of-the-Web and drop a Start Menu shortcut so cli-ck is
 // discoverable like an installed app.
 function installWindows() {
   try {
@@ -243,17 +262,17 @@ function installWindows() {
       `$s=(New-Object -ComObject WScript.Shell).CreateShortcut('${lnk}');` +
       `$s.TargetPath='${binaryPath}';` +
       `$s.WorkingDirectory='${binDir}';` +
-      `$s.Description='Oz';$s.Save()`;
+      `$s.Description='cli-ck';$s.Save()`;
     spawnSync('powershell', ['-NoProfile', '-Command', ps]);
   } catch {}
   return binaryPath;
 }
 
 function linuxDesktopFile() {
-  return path.join(homeDir, '.local', 'share', 'applications', 'oz.desktop');
+  return path.join(homeDir, '.local', 'share', 'applications', 'cli-ck.desktop');
 }
 
-// Linux: write a .desktop entry so Oz shows up in the application menu.
+// Linux: write a .desktop entry so cli-ck shows up in the application menu.
 function installLinux() {
   try {
     const desktopFile = linuxDesktopFile();
@@ -261,7 +280,7 @@ function installLinux() {
     const entry = [
       '[Desktop Entry]',
       'Type=Application',
-      'Name=Oz',
+      'Name=cli-ck',
       'Comment=AI-native terminal',
       `Exec="${binaryPath}"`,
       'Terminal=false',
@@ -282,7 +301,7 @@ function launch(target, args) {
     if (args.length) openArgs.push('--args', ...args);
     const child = spawn('open', openArgs, { detached: true, stdio: 'ignore' });
     child.on('error', (err) => {
-      console.error('Failed to launch Oz:', err.message);
+      console.error('Failed to launch cli-ck:', err.message);
       process.exit(1);
     });
     child.unref();
@@ -291,7 +310,7 @@ function launch(target, args) {
 
   const child = spawn(target, args, { detached: true, stdio: 'ignore' });
   child.on('error', (err) => {
-    console.error('Failed to launch Oz:', err.message);
+    console.error('Failed to launch cli-ck:', err.message);
     process.exit(1);
   });
   child.unref();
@@ -311,14 +330,14 @@ function uninstall() {
   };
 
   if (platform === 'darwin') {
-    tryRm('/Applications/Oz.app');
-    tryRm(path.join(homeDir, 'Applications', 'Oz.app'));
+    tryRm(`/Applications/${PRODUCT}.app`);
+    tryRm(path.join(homeDir, 'Applications', `${PRODUCT}.app`));
   } else if (platform === 'win32') {
     tryRm(startMenuShortcut());
   } else if (platform === 'linux') {
     tryRm(linuxDesktopFile());
   }
-  tryRm(ozDir);
+  tryRm(installDir);
 
   console.log(removed.length
     ? `Removed:\n  ${removed.join('\n  ')}`

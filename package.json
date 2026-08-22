@@ -1,7 +1,7 @@
 {
-  "name": "oz",
+  "name": "cli-ck",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.2.6",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1",
@@ -24,7 +24,9 @@
     "analyze:bundle": "ANALYZE=true vite build",
     "analyze:eager": "node scripts/eager-graph.mjs src/main.tsx && node scripts/eager-graph.mjs src/settings/main.tsx",
     "size": "size-limit",
-    "knip": "knip"
+    "knip": "knip",
+    "bench:agent": "node scripts/headless-agent/run.mjs",
+    "bench:suite": "node scripts/headless-agent/bench-suite.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.24",

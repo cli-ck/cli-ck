@@ -122,7 +122,7 @@ impl ShellSession {
 
 fn wrap_posix_with_sentinel(command: &str, sentinel: &str) -> String {
     format!(
-        "{command}\n__oz_rc=$?\nprintf '\\n%s%s\\n' '{sentinel}' \"$(pwd)\"\nexit $__oz_rc\n",
+        "{command}\n__cli_ck_rc=$?\nprintf '\\n%s%s\\n' '{sentinel}' \"$(pwd)\"\nexit $__cli_ck_rc\n",
     )
 }
 
@@ -137,7 +137,7 @@ fn wrap_with_sentinel(command: &str, workspace: &WorkspaceEnv, sentinel: &str) -
     #[cfg(windows)]
     {
         format!(
-        "{command}\n$__oz_rc = if ($null -ne $LASTEXITCODE) {{ $LASTEXITCODE }} elseif ($?) {{ 0 }} else {{ 1 }}\n\"`n{sentinel}$($PWD.Path)\"\nexit $__oz_rc\n",
+        "{command}\n$__cli_ck_rc = if ($null -ne $LASTEXITCODE) {{ $LASTEXITCODE }} elseif ($?) {{ 0 }} else {{ 1 }}\n\"`n{sentinel}$($PWD.Path)\"\nexit $__cli_ck_rc\n",
     )
     }
 }

@@ -42,10 +42,10 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
           gh release download "$TAG" \
-            --repo codecollab-co/oz \
-            --pattern "Oz_${VERSION}_amd64.deb" \
-            --pattern "Oz_x64.app.tar.gz" \
-            --pattern "Oz_aarch64.app.tar.gz"
+            --repo cli-ck/cli-ck \
+            --pattern "cli-ck_${VERSION}_amd64.deb" \
+            --pattern "cli-ck_x64.app.tar.gz" \
+            --pattern "cli-ck_aarch64.app.tar.gz"
 
       - name: Compute SRI hashes
         id: hashes
@@ -56,9 +56,9 @@ jobs:
             openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
           }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "linux=sha256-$(hash_sri "Oz_${VERSION}_amd64.deb")" >> "$GITHUB_OUTPUT"
-          echo "x64-darwin=sha256-$(hash_sri "Oz_x64.app.tar.gz")" >> "$GITHUB_OUTPUT"
-          echo "aarch64-darwin=sha256-$(hash_sri "Oz_aarch64.app.tar.gz")" >> "$GITHUB_OUTPUT"
+          echo "linux=sha256-$(hash_sri "cli-ck_${VERSION}_amd64.deb")" >> "$GITHUB_OUTPUT"
+          echo "x64-darwin=sha256-$(hash_sri "cli-ck_x64.app.tar.gz")" >> "$GITHUB_OUTPUT"
+          echo "aarch64-darwin=sha256-$(hash_sri "cli-ck_aarch64.app.tar.gz")" >> "$GITHUB_OUTPUT"
 
       - name: Update nix/sources.json
         run: |
