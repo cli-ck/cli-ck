@@ -8,6 +8,7 @@ import {
 import type { ToolContext } from "../tools/tools";
 import { type AgentUsageDelta, runAgentStream } from "./aiAgent";
 import type { CustomEndpointKeys, ProviderKeys } from "./keyring";
+import { isHighFriction } from "./modelFriction";
 import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
 import { native } from "./native";
 import {
@@ -58,7 +59,7 @@ type LiveSnapshot = {
 
 /** The local/freeform provider fields, all sourced from the same preferences
  *  slice — bundled into one getter instead of one per field. */
-type LocalProviderConfig = {
+export type LocalProviderConfig = {
   lmstudioBaseURL?: string;
   lmstudioModelId?: string;
   mlxBaseURL?: string;
@@ -94,6 +95,9 @@ type Deps = {
     autoTier: ModelTier | null;
   }) => void;
   getPlanMode?: () => boolean;
+  /** See RunAgentOptions.toolFilter in aiAgent.ts. */
+  toolFilter?: (toolName: string) => boolean;
+  getModelNotes?: () => Record<string, string>;
 };
 
 type SendOptions = {
@@ -140,6 +144,7 @@ function resolveEffectiveModelId(
     available,
     tierOverrides,
     estimateMessagesTokens(messages),
+    isHighFriction,
   );
   return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier };
 }
@@ -176,8 +181,10 @@ export function createContextAwareTransport(deps: Deps) {
       customEndpointKeys: deps.getCustomEndpointKeys?.(),
       planMode: deps.getPlanMode?.(),
       projectMemory,
+      modelNotes: deps.getModelNotes?.()[modelId],
       uiMessages: messagesForRun,
       abortSignal: options.abortSignal,
+      toolFilter: deps.toolFilter,
     });
     return result.toUIMessageStream({
       originalMessages: options.messages,

@@ -1,6 +1,11 @@
 import type { ModelTier } from "../config";
 
-export type SubagentType = "explore" | "code-review" | "security" | "general";
+export type SubagentType =
+  | "explore"
+  | "code-review"
+  | "security"
+  | "general"
+  | "planner";
 
 export type SubagentDef = {
   id: SubagentType;
@@ -56,6 +61,15 @@ export const SUBAGENTS: Record<SubagentType, SubagentDef> = {
       "General-purpose worker for multi-step research questions that span many files.",
     tools: READ_ONLY_TOOLS,
     systemPrompt: `You are a general-purpose research subagent. Answer the spawn question by reading the codebase. Don't speculate — verify. Return a tight summary with the evidence you used (paths, line numbers).`,
+    allowedTiers: ["light", "standard"],
+  },
+  planner: {
+    id: "planner",
+    label: "Planner",
+    description:
+      "Reads the request and relevant code, then returns a concrete, ordered step list — no edits, no commands. Run this before todo_write on a non-trivial task so the plan is grounded in what the code actually looks like.",
+    tools: READ_ONLY_TOOLS,
+    systemPrompt: `You are a planning subagent. Read the request and whatever code it touches, then return a concrete, ordered list of self-contained steps a builder could execute one at a time. Each step should be independently understandable (assume the builder has no memory of your exploration). Do not write or run anything yourself. Flag steps that are risky or ambiguous instead of guessing.`,
     allowedTiers: ["light", "standard"],
   },
 };

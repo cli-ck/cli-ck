@@ -90,6 +90,9 @@ const TOOL_LABELS: Record<string, (input: Record<string, unknown>) => string> =
     todo_write: (i) =>
       `Updating plan (${Array.isArray(i.todos) ? i.todos.length : 0} items)`,
     run_subagent: (i) => `Spawning ${String(i.type ?? "subagent")} subagent`,
+    spawn_worker: (i) => `Spawning worker: ${ellipsize(String(i.label ?? i.prompt ?? "step"), 40)}`,
+    spawn_team: (i) =>
+      `Spawning team (${Array.isArray(i.teammates) ? i.teammates.length : 0})`,
   };
 
 function shortPath(p: unknown): string {
@@ -410,6 +413,7 @@ function buildStableSystem(
   persona: { name: string; instructions: string } | null,
   customInstructions: string | undefined,
   projectMemory: string | null,
+  modelNotes: string | undefined,
 ): string {
   const base = selectSystemPrompt(modelId);
   const personaBlock = persona?.instructions.trim()
@@ -422,7 +426,10 @@ function buildStableSystem(
     projectMemory && projectMemory.trim().length > 0
       ? `\n\n## PROJECT — cli-ck.md\n${projectMemory.trim()}`
       : "";
-  return `${base}${memoryBlock}${personaBlock}${customBlock}`;
+  const notesBlock = modelNotes?.trim()
+    ? `\n\n## KNOWN LIMITATIONS OF THIS MODEL (user-written) — work around these\n${modelNotes.trim()}`
+    : "";
+  return `${base}${memoryBlock}${personaBlock}${customBlock}${notesBlock}`;
 }
 
 // OpenAI / Gemini / DeepSeek apply prefix caching automatically; only
@@ -571,8 +578,16 @@ export type RunAgentOptions = {
   customEndpointKeys?: CustomEndpointKeys;
   planMode?: boolean;
   projectMemory?: string | null;
+  /** Free-text notes the user wrote for this specific model (Settings →
+   *  Models), e.g. "weak at CSS, don't ask it to write frontend styles". */
+  modelNotes?: string;
   uiMessages: UIMessage[];
   abortSignal?: AbortSignal;
+  /** Restricts the built toolset to tools passing this predicate. Used to
+   *  strip recursion-prone tools (run_subagent, spawn_worker, ...) from a
+   *  disposable worker run without duplicating buildTools' wiring. Omit to
+   *  keep the full toolset (main session behavior, unchanged). */
+  toolFilter?: (toolName: string) => boolean;
 };
 
 export async function runAgentStream(opts: RunAgentOptions) {
@@ -603,6 +618,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
     opts.agentPersona ?? null,
     opts.customInstructions,
     opts.projectMemory ?? null,
+    opts.modelNotes,
   );
 
   const history = await convertToModelMessages(opts.uiMessages);
@@ -643,10 +659,16 @@ export async function runAgentStream(opts: RunAgentOptions) {
     ...opts.toolContext,
     protectedFiles: extractProtectedFiles(latestUserText(opts.uiMessages)),
   };
-  const tools = trimTerminalOnlyTools(
+  let tools = trimTerminalOnlyTools(
     buildTools(effectiveToolContext),
     effectiveToolContext,
   );
+  if (opts.toolFilter) {
+    const filter = opts.toolFilter;
+    tools = Object.fromEntries(
+      Object.entries(tools).filter(([name]) => filter(name)),
+    ) as typeof tools;
+  }
 
   let stepsSeen = 0;
   return streamText({
