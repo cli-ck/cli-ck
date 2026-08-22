@@ -1,4 +1,5 @@
 import { LazyStore } from "@tauri-apps/plugin-store";
+import type { TaskKind } from "./taskClassifier";
 
 export type FrictionOutcome = "ok" | "stepCap";
 
@@ -48,28 +49,37 @@ const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 500 });
 const cache = new Map<string, FrictionEntry>();
 let hydrated = false;
 
+/** Composite key — friction is tracked per (model, task domain), not just
+ *  per model, so a model that's flaky on code but reliable on reads doesn't
+ *  get a single blended rate that hides which one it's actually bad at. */
+function key(modelId: string, kind: TaskKind): string {
+  return `${modelId}::${kind}`;
+}
+
 export async function hydrateModelFriction(): Promise<void> {
   if (hydrated) return;
   hydrated = true;
   const entries = await store.entries<FrictionEntry>();
-  for (const [modelId, entry] of entries) cache.set(modelId, entry);
+  for (const [k, entry] of entries) cache.set(k, entry);
 }
 
 export function recordFriction(
   modelId: string,
+  kind: TaskKind,
   outcome: FrictionOutcome,
 ): void {
-  const next = nextFrictionEntry(cache.get(modelId), outcome);
-  cache.set(modelId, next);
-  void store.set(modelId, next);
+  const k = key(modelId, kind);
+  const next = nextFrictionEntry(cache.get(k), outcome);
+  cache.set(k, next);
+  void store.set(k, next);
 }
 
-/** Fraction of recent turns on this model that hit the step cap, or 0 with
- *  too few samples to judge. */
-export function frictionRate(modelId: string): number {
-  return frictionRateOf(cache.get(modelId));
+/** Fraction of recent turns on this model, for this task kind, that hit the
+ *  step cap — or 0 with too few samples to judge. */
+export function frictionRate(modelId: string, kind: TaskKind): number {
+  return frictionRateOf(cache.get(key(modelId, kind)));
 }
 
-export function isHighFriction(modelId: string): boolean {
-  return isHighFrictionEntry(cache.get(modelId));
+export function isHighFriction(modelId: string, kind: TaskKind): boolean {
+  return isHighFrictionEntry(cache.get(key(modelId, kind)));
 }

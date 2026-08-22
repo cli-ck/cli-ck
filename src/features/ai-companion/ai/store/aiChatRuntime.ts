@@ -99,7 +99,11 @@ function makeChat(sessionId: string): Chat<UIMessage> {
         lastTurnModelId: info.modelId,
         lastTurnAutoTier: info.autoTier,
       });
-      recordFriction(info.modelId, info.hitStepCap ? "stepCap" : "ok");
+      recordFriction(
+        info.modelId,
+        info.taskKind,
+        info.hitStepCap ? "stepCap" : "ok",
+      );
     },
     onUsage: (delta, modelId) => {
       const cur = useAiChatStore.getState().agentMeta.tokens;

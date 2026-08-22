@@ -13,9 +13,11 @@ import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
 import { native } from "./native";
 import {
   classifyMessageTier,
+  classifyTaskKind,
   estimateMessagesTokens,
   findLastUserMessage,
   lastMessageHasImage,
+  type TaskKind,
 } from "./taskClassifier";
 
 const CLI_CK_MD_MAX_BYTES = 32 * 1024;
@@ -93,10 +95,14 @@ type Deps = {
     /** Tier the turn was routed to under Auto mode; null when the user has a
      *  specific model selected (no routing decision was made). */
     autoTier: ModelTier | null;
+    /** Task domain this turn classified as — fed back into modelFriction so
+     *  reliability memory is per-domain, not one blended rate. */
+    taskKind: TaskKind;
   }) => void;
   getPlanMode?: () => boolean;
-  /** See RunAgentOptions.toolFilter in aiAgent.ts. */
+  /** See RunAgentOptions.toolFilter / maxSteps in aiAgent.ts. */
   toolFilter?: (toolName: string) => boolean;
+  maxSteps?: number;
   getModelNotes?: () => Record<string, string>;
 };
 
@@ -130,6 +136,7 @@ function resolveEffectiveModelId(
   messages: readonly UIMessage[],
   keys: ProviderKeys,
   tierOverrides: Partial<Record<ModelTier, string>>,
+  taskKind: TaskKind,
 ): { modelId: string; autoTier: ModelTier | null } {
   if (rawModelId !== AUTO_MODEL_ID) {
     return { modelId: rawModelId, autoTier: null };
@@ -144,7 +151,7 @@ function resolveEffectiveModelId(
     available,
     tierOverrides,
     estimateMessagesTokens(messages),
-    isHighFriction,
+    (modelId) => isHighFriction(modelId, taskKind),
   );
   return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier };
 }
@@ -157,11 +164,13 @@ export function createContextAwareTransport(deps: Deps) {
     const messagesForRun = envBlock
       ? injectEnvIntoLastUser(options.messages, envBlock)
       : options.messages;
+    const taskKind = classifyTaskKind(messagesForRun);
     const { modelId, autoTier } = resolveEffectiveModelId(
       deps.getModelId(),
       messagesForRun,
       deps.getKeys(),
       deps.getModelTiers?.() ?? {},
+      taskKind,
     );
     const result = await runAgentStream({
       keys: deps.getKeys(),
@@ -175,7 +184,7 @@ export function createContextAwareTransport(deps: Deps) {
         : undefined,
       onCompact: deps.onCompact,
       onFinishMeta: deps.onFinishMeta
-        ? (info) => deps.onFinishMeta?.({ ...info, modelId, autoTier })
+        ? (info) => deps.onFinishMeta?.({ ...info, modelId, autoTier, taskKind })
         : undefined,
       ...deps.getLocalProviderConfig?.(),
       customEndpointKeys: deps.getCustomEndpointKeys?.(),
@@ -185,6 +194,7 @@ export function createContextAwareTransport(deps: Deps) {
       uiMessages: messagesForRun,
       abortSignal: options.abortSignal,
       toolFilter: deps.toolFilter,
+      maxSteps: deps.maxSteps,
     });
     return result.toUIMessageStream({
       originalMessages: options.messages,
