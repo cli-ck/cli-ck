@@ -8,7 +8,7 @@ import {
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
 import { basename, resolvePath, type ToolContext } from "./context";
 
-const READ_BYTE_CAP = 25 * 1024;
+export const READ_BYTE_CAP = 25 * 1024;
 const READ_LINE_CAP = 2000;
 
 function djb2(s: string): number {

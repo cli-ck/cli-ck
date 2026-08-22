@@ -5,7 +5,7 @@ import { checkWritableCanonical } from "../lib/security";
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
 import { basename, resolvePath, type ToolContext } from "./context";
 
-function protectedFileError(ctx: ToolContext, abs: string): EditResult | null {
+export function protectedFileError(ctx: ToolContext, abs: string): EditResult | null {
   if (ctx.protectedFiles?.has(basename(abs))) {
     return {
       error: `Blocked: ${abs} is protected — the current task said not to change this file.`,
@@ -15,7 +15,7 @@ function protectedFileError(ctx: ToolContext, abs: string): EditResult | null {
   return null;
 }
 
-type EditResult =
+export type EditResult =
   | { ok: true; replacements: number; bytesWritten: number; path: string }
   | { error: string; path: string };
 
@@ -25,7 +25,7 @@ function djb2(s: string): number {
   return h >>> 0;
 }
 
-async function applyEdits(
+export async function applyEdits(
   abs: string,
   edits: { old_string: string; new_string: string; replace_all?: boolean }[],
   kind: "edit" | "multi_edit",

@@ -71,7 +71,7 @@ function djb2(s: string): number {
   return h >>> 0;
 }
 
-function latestUserText(uiMessages: UIMessage[]): string {
+export function latestUserText(uiMessages: UIMessage[]): string {
   for (let i = uiMessages.length - 1; i >= 0; i--) {
     const m = uiMessages[i];
     if (m.role !== "user") continue;
@@ -86,7 +86,7 @@ function latestUserText(uiMessages: UIMessage[]): string {
 const PROTECTED_FILE_RE =
   /\b(?:do not|don't|never)\s+(?:change|modify|touch|edit)\s+([a-zA-Z0-9_\-./]+\.\w+)/gi;
 
-function extractProtectedFiles(promptText: string): Set<string> {
+export function extractProtectedFiles(promptText: string): Set<string> {
   const out = new Set<string>();
   for (const m of promptText.matchAll(PROTECTED_FILE_RE)) {
     out.add(basename(m[1]));
@@ -100,7 +100,7 @@ function extractProtectedFiles(promptText: string): Set<string> {
 // "already read" would defeat the read-before-edit safety invariant it's
 // meant to enforce; this only fires where that invariant costs a real user
 // nothing (a handful of files, none seen yet this session).
-const PRESEED_MAX_FILES = 20;
+export const PRESEED_MAX_FILES = 20;
 
 async function preSeedReadCacheForSmallCwd(ctx: ToolContext): Promise<void> {
   if (ctx.readCache.size > 0) return;
