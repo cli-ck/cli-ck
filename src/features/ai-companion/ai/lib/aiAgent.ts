@@ -5,6 +5,7 @@ import {
   streamText,
   type LanguageModel,
   type ModelMessage,
+  type SystemModelMessage,
   type UIMessage,
 } from "ai";
 import {
@@ -386,23 +387,32 @@ function buildStableSystem(
 // OpenAI / Gemini / DeepSeek apply prefix caching automatically; only
 // Anthropic needs explicit breakpoints. Mark the stable system prefix and
 // the rotating conversation tail.
+function withCacheMarker<T extends ModelMessage | SystemModelMessage>(m: T): T {
+  return {
+    ...m,
+    providerOptions: {
+      ...(m.providerOptions ?? {}),
+      anthropic: { cacheControl: { type: "ephemeral" as const } },
+    },
+  };
+}
+
+// Marks the first system instruction and the last conversation message as
+// Anthropic prompt-cache breakpoints. Split into two arrays (`instructions`
+// vs `messages`) since ai@7.0.42 rejects role:"system" entries inside
+// `messages` by default (see the streamText call below).
 function applyCacheBreakpoints(
+  instructions: SystemModelMessage[],
   messages: ModelMessage[],
   provider: ProviderId,
-): ModelMessage[] {
-  if (provider !== "anthropic" || messages.length === 0) return messages;
-  const marker = {
-    anthropic: { cacheControl: { type: "ephemeral" as const } },
-  };
-  const withMarker = (m: ModelMessage): ModelMessage => ({
-    ...m,
-    providerOptions: { ...(m.providerOptions ?? {}), ...marker },
-  });
-  const out = messages.slice();
-  out[0] = withMarker(out[0]);
-  const lastIdx = out.length - 1;
-  if (lastIdx > 0) out[lastIdx] = withMarker(out[lastIdx]);
-  return out;
+): { instructions: SystemModelMessage[]; messages: ModelMessage[] } {
+  if (provider !== "anthropic") return { instructions, messages };
+  const outInstructions = instructions.slice();
+  if (outInstructions.length > 0) outInstructions[0] = withCacheMarker(outInstructions[0]);
+  const outMessages = messages.slice();
+  const lastIdx = outMessages.length - 1;
+  if (lastIdx >= 0) outMessages[lastIdx] = withCacheMarker(outMessages[lastIdx]);
+  return { instructions: outInstructions, messages: outMessages };
 }
 
 // Fix 3: drop the tools that are provably inert without an active terminal
@@ -568,13 +578,15 @@ export async function runAgentStream(opts: RunAgentOptions) {
     opts.onCompact?.({ droppedCount: compact.droppedCount });
   }
 
-  const messages: ModelMessage[] = [{ role: "system", content: stableSystem }];
+  const instructions: SystemModelMessage[] = [
+    { role: "system", content: stableSystem },
+  ];
   if (opts.planMode) {
-    messages.push({ role: "system", content: PLAN_MODE_PROMPT });
+    instructions.push({ role: "system", content: PLAN_MODE_PROMPT });
   }
-  messages.push(...compactedHistory);
 
-  const finalMessages = applyCacheBreakpoints(messages, provider);
+  const { instructions: finalInstructions, messages: finalMessages } =
+    applyCacheBreakpoints(instructions, compactedHistory, provider);
 
   // Fix 2 + Fix 5 setup: pre-seed the read-before-edit cache for small,
   // freshly-started scopes, and derive this turn's protected-file set from
@@ -592,6 +604,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
   let stepsSeen = 0;
   return streamText({
     model,
+    instructions: finalInstructions,
     messages: finalMessages,
     // The stable system prompt is embedded as messages[0] above rather than
     // passed via the separate `system`/`instructions` option. That was
