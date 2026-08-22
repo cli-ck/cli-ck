@@ -11,6 +11,7 @@ import {
   providerNeedsKey,
 } from "../config";
 import { BUILTIN_AGENTS } from "../lib/agents";
+import { recordFriction } from "../lib/modelFriction";
 import { createContextAwareTransport } from "../lib/transport";
 import type { ToolContext } from "../tools/tools";
 import { useAiAgentsStore } from "./aiAgentsStore";
@@ -91,12 +92,14 @@ function makeChat(sessionId: string): Chat<UIMessage> {
       });
     },
     getModelTiers: () => usePreferencesStore.getState().modelTiers,
+    getModelNotes: () => usePreferencesStore.getState().modelNotes,
     onFinishMeta: (info) => {
       useAiChatStore.getState().patchAgentMeta({
         hitStepCap: info.hitStepCap,
         lastTurnModelId: info.modelId,
         lastTurnAutoTier: info.autoTier,
       });
+      recordFriction(info.modelId, info.hitStepCap ? "stepCap" : "ok");
     },
     onUsage: (delta, modelId) => {
       const cur = useAiChatStore.getState().agentMeta.tokens;

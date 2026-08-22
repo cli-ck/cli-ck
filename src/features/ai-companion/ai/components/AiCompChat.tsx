@@ -369,7 +369,7 @@ const ContinueRow = memo(function ContinueRow({
   );
 });
 
-const RenderedMessage = memo(function RenderedMessage({
+export const RenderedMessage = memo(function RenderedMessage({
   message,
   onApproval,
   streaming,

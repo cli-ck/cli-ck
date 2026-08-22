@@ -49,6 +49,7 @@ import { usePreferencesStore } from "@/features/layout-chrome/settings/preferenc
 import { usePlanStore } from "../store/planStore";
 import { AgentSwitcher } from "./AgentSwitcher";
 import { AiChatView } from "./AiCompChat";
+import { WorkerRunsPanel } from "./WorkerRunsPanel";
 import { PlanDiffReview } from "./PlanDiffReview";
 import { TodoStrip } from "./TodoStrip";
 
@@ -220,6 +221,7 @@ function Body({
       </div>
 
       <TodoStrip sessionId={sessionId} />
+      <WorkerRunsPanel sessionId={sessionId} />
     </>
   );
 }
