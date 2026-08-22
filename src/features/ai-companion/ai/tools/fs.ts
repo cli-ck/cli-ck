@@ -6,9 +6,9 @@ import {
   checkWritableCanonical,
 } from "../lib/security";
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
-import { resolvePath, type ToolContext } from "./context";
+import { basename, resolvePath, type ToolContext } from "./context";
 
-const READ_BYTE_CAP = 25 * 1024;
+export const READ_BYTE_CAP = 25 * 1024;
 const READ_LINE_CAP = 2000;
 
 function djb2(s: string): number {
@@ -140,12 +140,18 @@ export function buildFsTools(ctx: ToolContext) {
         path: z.string(),
         content: z.string(),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path, content }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        if (ctx.protectedFiles?.has(basename(abs))) {
+          return {
+            error: `Blocked: ${abs} is protected — the current task said not to change this file.`,
+            path: abs,
+          };
+        }
 
         if (usePlanStore.getState().active) {
           let original = "";
@@ -187,7 +193,7 @@ export function buildFsTools(ctx: ToolContext) {
       inputSchema: z.object({
         path: z.string(),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
