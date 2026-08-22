@@ -6,20 +6,37 @@ import { createProxyFetch } from "./proxyFetch";
 const cloudFetch = createProxyFetch();
 const localFetch = createProxyFetch({ allowPrivateNetwork: true });
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 async function fetchJson(
   url: string,
   headers: Record<string, string>,
   allowPrivateNetwork: boolean,
 ): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await (allowPrivateNetwork ? localFetch : cloudFetch)(url, {
       headers,
+      signal: controller.signal,
     });
     if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+// ponytail: id-pattern denylist, not a real capability field — providers
+// don't expose one (checked OpenAI/Groq/Google docs). Revisit if a provider
+// starts returning structured model types.
+const NON_CHAT_ID_PATTERN =
+  /whisper|-tts|^tts-|embedding|moderation|guard|-audio|realtime|dall-e|^dalle|image-gen|-image|imagen|veo-/i;
+
+function chatOnly(ids: string[]): string[] {
+  return ids.filter((id) => !NON_CHAT_ID_PATTERN.test(id));
 }
 
 function idsFromDataList(json: unknown): string[] | null {
@@ -43,7 +60,10 @@ export async function fetchOpenAICompatibleModelIds(
   const headers: Record<string, string> = {};
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   const url = `${baseURL.trim().replace(/\/+$/, "")}/models`;
-  return idsFromDataList(await fetchJson(url, headers, allowPrivateNetwork));
+  const ids = idsFromDataList(
+    await fetchJson(url, headers, allowPrivateNetwork),
+  );
+  return ids && chatOnly(ids);
 }
 
 export async function fetchAnthropicModelIds(
@@ -54,26 +74,28 @@ export async function fetchAnthropicModelIds(
     { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     false,
   );
-  return idsFromDataList(json);
+  const ids = idsFromDataList(json);
+  return ids && chatOnly(ids);
 }
 
 export async function fetchGoogleModelIds(
   apiKey: string,
 ): Promise<string[] | null> {
   const json = await fetchJson(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
-    {},
+    "https://generativelanguage.googleapis.com/v1beta/models",
+    { "x-goog-api-key": apiKey },
     false,
   );
   const models = (json as { models?: unknown } | null)?.models;
   if (!Array.isArray(models)) return null;
-  return models
+  const ids = models
     .map((m) => {
       const name =
         m && typeof m === "object" ? (m as { name?: unknown }).name : null;
       return typeof name === "string" ? name.replace(/^models\//, "") : null;
     })
     .filter((id): id is string => !!id);
+  return chatOnly(ids);
 }
 
 /** Live model-list base URL per cloud provider — same base URLs already used
@@ -147,6 +169,7 @@ type CatalogState = {
   models: Partial<Record<ProviderId, ModelInfo[]>>;
   status: Partial<Record<ProviderId, CatalogStatus>>;
   fetchedAt: Partial<Record<ProviderId, number>>;
+  fetchedKey: Partial<Record<ProviderId, string>>;
   refresh: (
     provider: ProviderId,
     apiKey: string | null | undefined,
@@ -156,12 +179,33 @@ type CatalogState = {
 
 const inflight = new Map<ProviderId, Promise<void>>();
 
+// Every window (main + the separate Settings webview) runs its own copy of
+// this store, so both fetch the same providers on mount. BroadcastChannel is
+// same-origin and Tauri webviews of one app share an origin, so a successful
+// fetch in one window can hand its result to the others instead of each
+// re-fetching. ponytail: shares finished results only, doesn't dedupe two
+// fetches that start within the same instant in different windows — a real
+// fix would move the fetch itself into a shared process (Tauri command).
+const CATALOG_CHANNEL_NAME = "cli-ck-model-catalog";
+const catalogChannel =
+  typeof BroadcastChannel !== "undefined"
+    ? new BroadcastChannel(CATALOG_CHANNEL_NAME)
+    : null;
+
+type CatalogBroadcast = {
+  provider: ProviderId;
+  apiKey: string;
+  models: ModelInfo[];
+  fetchedAt: number;
+};
+
 // ponytail: in-memory only, cleared on app restart — a real cache would
 // persist to disk; the 2h TTL + background refresh makes that unnecessary.
 export const useModelCatalogStore = create<CatalogState>()((set, get) => ({
   models: {},
   status: {},
   fetchedAt: {},
+  fetchedKey: {},
   refresh: (provider, apiKey, force = false) => {
     if (!apiKey || !CATALOG_PROVIDERS.includes(provider)) {
       return Promise.resolve();
@@ -171,6 +215,7 @@ export const useModelCatalogStore = create<CatalogState>()((set, get) => ({
     if (
       !force &&
       state.status[provider] === "ok" &&
+      state.fetchedKey[provider] === apiKey &&
       fresh &&
       Date.now() - fresh < CACHE_TTL_MS
     ) {
@@ -184,14 +229,20 @@ export const useModelCatalogStore = create<CatalogState>()((set, get) => ({
       const staticModels = MODELS.filter((m) => m.provider === provider);
       const liveIds = await fetchLiveIdsForProvider(provider, apiKey);
       if (liveIds && liveIds.length > 0) {
+        const merged = mergeLiveModels(provider, liveIds, staticModels);
+        const fetchedAt = Date.now();
         set((s) => ({
-          models: {
-            ...s.models,
-            [provider]: mergeLiveModels(provider, liveIds, staticModels),
-          },
+          models: { ...s.models, [provider]: merged },
           status: { ...s.status, [provider]: "ok" },
-          fetchedAt: { ...s.fetchedAt, [provider]: Date.now() },
+          fetchedAt: { ...s.fetchedAt, [provider]: fetchedAt },
+          fetchedKey: { ...s.fetchedKey, [provider]: apiKey },
         }));
+        catalogChannel?.postMessage({
+          provider,
+          apiKey,
+          models: merged,
+          fetchedAt,
+        } satisfies CatalogBroadcast);
       } else {
         // Fetch failed or came back empty — keep last-good cache if we have
         // one, else fall back to today's static list. Never end up empty.
@@ -208,6 +259,22 @@ export const useModelCatalogStore = create<CatalogState>()((set, get) => ({
   },
 }));
 
+catalogChannel?.addEventListener(
+  "message",
+  (event: MessageEvent<CatalogBroadcast>) => {
+    const { provider, apiKey, models, fetchedAt } = event.data;
+    const state = useModelCatalogStore.getState();
+    // Ignore a broadcast this window's own fetch has already beaten.
+    if ((state.fetchedAt[provider] ?? 0) >= fetchedAt) return;
+    useModelCatalogStore.setState((s) => ({
+      models: { ...s.models, [provider]: models },
+      status: { ...s.status, [provider]: "ok" },
+      fetchedAt: { ...s.fetchedAt, [provider]: fetchedAt },
+      fetchedKey: { ...s.fetchedKey, [provider]: apiKey },
+    }));
+  },
+);
+
 /** A live-fetched model id that isn't in the static MODELS array won't
  *  resolve via config.ts's `resolveModel`/`getModel` (they only look at
  *  MODELS). Callers that resolve a possibly-live model id — building the
@@ -220,6 +287,21 @@ export function findLiveModel(modelId: string): ModelInfo | undefined {
     if (hit) return hit;
   }
   return undefined;
+}
+
+/** Reactive counterpart of `findLiveModel` — subscribes to the catalog so a
+ *  component showing a live-only model's current label/selection re-renders
+ *  once a still-loading catalog fetch resolves, instead of being stuck on
+ *  whatever fallback it rendered at mount. */
+export function useLiveModel(modelId: string): ModelInfo | undefined {
+  const models = useModelCatalogStore((s) => s.models);
+  return useMemo(() => {
+    for (const list of Object.values(models)) {
+      const hit = list?.find((m) => m.id === modelId);
+      if (hit) return hit;
+    }
+    return undefined;
+  }, [models, modelId]);
 }
 
 /** Non-reactive lookup for use inside a loop over providers — call the

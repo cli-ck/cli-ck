@@ -1,10 +1,12 @@
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
+  DEFAULT_STT_PROVIDER,
   endpointIdFromCompatModel,
   getModelContextLimit,
   isCompatModelId,
   migrateLegacyCompatEndpoint,
+  migrateLegacySttProvider,
   modelKeepsReasoning,
   resolveModel,
 } from "@/features/ai-companion/ai/config";
@@ -28,6 +30,24 @@ describe("compat model id helpers", () => {
   it("treats static model ids as non-compat", () => {
     expect(isCompatModelId("gpt-5.4-mini")).toBe(false);
     expect(endpointIdFromCompatModel("gpt-5.4-mini")).toBe("");
+  });
+});
+
+describe("migrateLegacySttProvider", () => {
+  it("passes through known providers", () => {
+    expect(migrateLegacySttProvider("openai")).toBe("openai");
+    expect(migrateLegacySttProvider("groq")).toBe("groq");
+  });
+
+  it("remaps a legacy whispercpp preference to the default", () => {
+    expect(migrateLegacySttProvider("whispercpp" as never)).toBe(
+      DEFAULT_STT_PROVIDER,
+    );
+  });
+
+  it("remaps a missing preference to the default", () => {
+    expect(migrateLegacySttProvider(undefined)).toBe(DEFAULT_STT_PROVIDER);
+    expect(migrateLegacySttProvider(null)).toBe(DEFAULT_STT_PROVIDER);
   });
 });
 
