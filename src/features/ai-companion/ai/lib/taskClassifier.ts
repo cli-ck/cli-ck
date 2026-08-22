@@ -1,7 +1,31 @@
 import type { UIMessage } from "@ai-sdk/react";
 import type { ModelTier } from "../config";
 
-type MessagePart = { type: string; text?: string; mediaType?: string };
+type MessagePart = {
+  type: string;
+  text?: string;
+  mediaType?: string;
+  input?: unknown;
+  output?: unknown;
+};
+
+/** ~4 chars/token estimate over text, reasoning, and tool call input/output —
+ *  the same heuristic the context-usage indicator uses, shared so the Auto
+ *  router and the UI never drift apart. */
+export function estimateMessagesTokens(messages: readonly UIMessage[]): number {
+  let chars = 0;
+  for (const m of messages) {
+    for (const p of m.parts as readonly MessagePart[]) {
+      if (p.type === "text" || p.type === "reasoning") {
+        chars += p.text?.length ?? 0;
+      } else if (p.type.startsWith("tool-")) {
+        if (p.input) chars += JSON.stringify(p.input).length;
+        if (p.output) chars += JSON.stringify(p.output).length;
+      }
+    }
+  }
+  return Math.ceil(chars / 4);
+}
 
 const LOOKUP_KEYWORDS =
   /\b(what is|what's|explain|why does|why is|how does|define|meaning of|difference between)\b/i;

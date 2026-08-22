@@ -40,6 +40,7 @@ import {
 import type { ResizeDir } from "../lib/miniWindowGeometry";
 import type { SessionMeta } from "../lib/aiSessions";
 import { availableModelsForTiers, resolveTierModel } from "../lib/modelTiers";
+import { estimateMessagesTokens } from "../lib/taskClassifier";
 import { useMiniWindowGeometry } from "../lib/useMiniWindowGeometry";
 import { useAiAgentsStore } from "../store/aiAgentsStore";
 import { useAiChatStore } from "../store/aiChatStore";
@@ -324,24 +325,6 @@ function ChromeHeader({
   );
 }
 
-function estimateTokens(messages: UIMessage[]): number {
-  let chars = 0;
-  for (const m of messages) {
-    for (const p of m.parts) {
-      if (p.type === "text") {
-        chars += (p as { text?: string }).text?.length ?? 0;
-      } else if (p.type === "reasoning") {
-        chars += (p as { text?: string }).text?.length ?? 0;
-      } else if (typeof p.type === "string" && p.type.startsWith("tool-")) {
-        const tp = p as unknown as { input?: unknown; output?: unknown };
-        if (tp.input) chars += JSON.stringify(tp.input).length;
-        if (tp.output) chars += JSON.stringify(tp.output).length;
-      }
-    }
-  }
-  return Math.ceil(chars / 4);
-}
-
 function formatTokens(n: number): string {
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
@@ -356,7 +339,7 @@ function ContextIndicator({ messages }: { messages: UIMessage[] }) {
   const lastCached = useAiChatStore((s) => s.agentMeta.lastCachedTokens);
   const apiKeys = useAiChatStore((s) => s.apiKeys);
   const modelTiers = usePreferencesStore((s) => s.modelTiers);
-  const estimated = useMemo(() => estimateTokens(messages), [messages]);
+  const estimated = useMemo(() => estimateMessagesTokens(messages), [messages]);
   const used = lastInput > 0 ? lastInput : estimated;
   const reported = tokens.inputTokens + tokens.outputTokens;
   const openaiCompatibleContextLimit = usePreferencesStore(

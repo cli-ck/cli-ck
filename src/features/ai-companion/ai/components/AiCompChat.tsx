@@ -39,6 +39,7 @@ import {
   nextTierUp,
   resolveTierModel,
 } from "../lib/modelTiers";
+import { estimateMessagesTokens } from "../lib/taskClassifier";
 import type {
   ChatStatus,
   DynamicToolUIPart,
@@ -215,10 +216,14 @@ export function AiChatView({
     const next = nextTierUp(lastTurnAutoTier);
     if (!next) return null;
     return (
-      resolveTierModel(next, availableModelsForTiers(apiKeys), modelTiers) ??
-      null
+      resolveTierModel(
+        next,
+        availableModelsForTiers(apiKeys),
+        modelTiers,
+        estimateMessagesTokens(messages),
+      ) ?? null
     );
-  }, [lastTurnAutoTier, apiKeys, modelTiers]);
+  }, [lastTurnAutoTier, apiKeys, modelTiers, messages]);
 
   const onApproval = useCallback(
     (id: string, approved: boolean) =>

@@ -12,6 +12,7 @@ import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
 import { native } from "./native";
 import {
   classifyMessageTier,
+  estimateMessagesTokens,
   findLastUserMessage,
   lastMessageHasImage,
 } from "./taskClassifier";
@@ -134,7 +135,12 @@ function resolveEffectiveModelId(
   if (lastMessageHasImage(messages)) {
     available = available.filter((m) => m.tags?.includes("vision"));
   }
-  const resolved = resolveTierModel(autoTier, available, tierOverrides);
+  const resolved = resolveTierModel(
+    autoTier,
+    available,
+    tierOverrides,
+    estimateMessagesTokens(messages),
+  );
   return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier };
 }
 
