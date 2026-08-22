@@ -113,7 +113,7 @@ export async function saveActiveAgentId(id: string): Promise<void> {
 }
 
 export function newAgentId(): string {
-  return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `a-${crypto.randomUUID()}`;
 }
 
 export function findAgent(

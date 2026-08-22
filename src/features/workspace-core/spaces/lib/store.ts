@@ -1,5 +1,5 @@
-import { LazyStore } from "@tauri-apps/plugin-store";
 import type { WorkspaceEnv } from "@/features/shell-pty/workspace";
+import { LazyStore } from "@tauri-apps/plugin-store";
 import type { SerializedTab } from "./serialize";
 
 export type SpaceMeta = {
@@ -64,5 +64,5 @@ export async function deleteSpaceData(id: string): Promise<void> {
 }
 
 export function newSpaceId(): string {
-  return `sp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `sp-${crypto.randomUUID()}`;
 }
