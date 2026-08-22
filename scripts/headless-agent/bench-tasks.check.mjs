@@ -3,7 +3,7 @@
 // the unmodified seed fails verify() — i.e. the test actually tests
 // something, not just "file exists".
 //
-//   node scripts/headless-agent/bench-tasks.test.mjs
+//   node scripts/headless-agent/bench-tasks.check.mjs
 import assert from "node:assert/strict";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";

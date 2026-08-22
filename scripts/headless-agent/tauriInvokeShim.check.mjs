@@ -2,7 +2,7 @@
 // fs/shell command handlers directly against a scratch temp dir, mirroring
 // what the fs/edit/shell tool files actually call through native.ts.
 //
-//   node --experimental-strip-types scripts/headless-agent/tauriInvokeShim.test.mjs
+//   node --experimental-strip-types scripts/headless-agent/tauriInvokeShim.check.mjs
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import * as fsp from "node:fs/promises";
