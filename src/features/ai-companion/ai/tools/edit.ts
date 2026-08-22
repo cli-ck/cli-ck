@@ -3,9 +3,19 @@ import { z } from "zod";
 import { native } from "../lib/native";
 import { checkWritableCanonical } from "../lib/security";
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
-import { resolvePath, type ToolContext } from "./context";
+import { basename, resolvePath, type ToolContext } from "./context";
 
-type EditResult =
+export function protectedFileError(ctx: ToolContext, abs: string): EditResult | null {
+  if (ctx.protectedFiles?.has(basename(abs))) {
+    return {
+      error: `Blocked: ${abs} is protected — the current task said not to change this file.`,
+      path: abs,
+    };
+  }
+  return null;
+}
+
+export type EditResult =
   | { ok: true; replacements: number; bytesWritten: number; path: string }
   | { error: string; path: string };
 
@@ -15,7 +25,7 @@ function djb2(s: string): number {
   return h >>> 0;
 }
 
-async function applyEdits(
+export async function applyEdits(
   abs: string,
   edits: { old_string: string; new_string: string; replace_all?: boolean }[],
   kind: "edit" | "multi_edit",
@@ -130,12 +140,14 @@ export function buildEditTools(ctx: ToolContext) {
         new_string: z.string().describe("Replacement substring."),
         replace_all: z.boolean().optional(),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path, old_string, new_string, replace_all }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        const blocked = protectedFileError(ctx, abs);
+        if (blocked) return blocked;
         if (!ctx.readCache.has(abs)) {
           return {
             error:
@@ -167,12 +179,14 @@ export function buildEditTools(ctx: ToolContext) {
           )
           .min(1),
       }),
-      needsApproval: true,
+      needsApproval: !ctx.autoApprove,
       execute: async ({ path, edits }) => {
         const reqPath = resolvePath(path, ctx.getCwd());
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        const blocked = protectedFileError(ctx, abs);
+        if (blocked) return blocked;
         if (!ctx.readCache.has(abs)) {
           return {
             error:

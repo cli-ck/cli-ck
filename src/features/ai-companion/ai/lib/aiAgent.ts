@@ -5,6 +5,7 @@ import {
   streamText,
   type LanguageModel,
   type ModelMessage,
+  type SystemModelMessage,
   type UIMessage,
 } from "ai";
 import {
@@ -23,9 +24,11 @@ import {
   type CustomEndpoint,
   type ProviderId,
 } from "../config";
+import { basename, resolvePath } from "../tools/context";
 import { buildTools, type ToolContext } from "../tools/tools";
 import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys, CustomEndpointKeys } from "./keyring";
+import { native } from "./native";
 import { createProxyFetch } from "./proxyFetch";
 
 const localProxyFetch = createProxyFetch({ allowPrivateNetwork: true });
@@ -61,6 +64,66 @@ function shortPath(p: unknown): string {
 
 function ellipsize(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+function djb2(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
+export function latestUserText(uiMessages: UIMessage[]): string {
+  for (let i = uiMessages.length - 1; i >= 0; i--) {
+    const m = uiMessages[i];
+    if (m.role !== "user") continue;
+    return m.parts
+      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map((p) => p.text)
+      .join("\n");
+  }
+  return "";
+}
+
+const PROTECTED_FILE_RE =
+  /\b(?:do not|don't|never)\s+(?:change|modify|touch|edit)\s+([a-zA-Z0-9_\-./]+\.\w+)/gi;
+
+export function extractProtectedFiles(promptText: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of promptText.matchAll(PROTECTED_FILE_RE)) {
+    out.add(basename(m[1]));
+  }
+  return out;
+}
+
+// Fix 2: skip the mandatory separate read_file round-trip for existing-file
+// edits — but only for a fresh session in a small, directly-scoped
+// directory. Blindly marking every file in a large real project as
+// "already read" would defeat the read-before-edit safety invariant it's
+// meant to enforce; this only fires where that invariant costs a real user
+// nothing (a handful of files, none seen yet this session).
+export const PRESEED_MAX_FILES = 20;
+
+async function preSeedReadCacheForSmallCwd(ctx: ToolContext): Promise<void> {
+  if (ctx.readCache.size > 0) return;
+  const cwd = ctx.getCwd();
+  if (!cwd) return;
+  try {
+    const entries = await native.readDir(cwd);
+    const files = entries.filter((e) => e.kind === "file");
+    if (files.length === 0 || files.length > PRESEED_MAX_FILES) return;
+    for (const e of files) {
+      const abs = resolvePath(e.name, cwd);
+      try {
+        const r = await native.readFile(abs);
+        if (r.kind !== "text") continue;
+        ctx.readCache.set(abs, { size: r.size, hash: djb2(r.content) });
+      } catch {
+        // best-effort — a single unreadable file shouldn't block the rest
+      }
+    }
+  } catch {
+    // best-effort — pre-seeding is an optimization, never a requirement
+  }
 }
 
 export type BuildModelOptions = {
@@ -324,23 +387,104 @@ function buildStableSystem(
 // OpenAI / Gemini / DeepSeek apply prefix caching automatically; only
 // Anthropic needs explicit breakpoints. Mark the stable system prefix and
 // the rotating conversation tail.
+function withCacheMarker<T extends ModelMessage | SystemModelMessage>(m: T): T {
+  return {
+    ...m,
+    providerOptions: {
+      ...(m.providerOptions ?? {}),
+      anthropic: { cacheControl: { type: "ephemeral" as const } },
+    },
+  };
+}
+
+// Marks the first system instruction and the last conversation message as
+// Anthropic prompt-cache breakpoints. Split into two arrays (`instructions`
+// vs `messages`) since ai@7.0.42 rejects role:"system" entries inside
+// `messages` by default (see the streamText call below).
 function applyCacheBreakpoints(
+  instructions: SystemModelMessage[],
   messages: ModelMessage[],
   provider: ProviderId,
-): ModelMessage[] {
-  if (provider !== "anthropic" || messages.length === 0) return messages;
-  const marker = {
-    anthropic: { cacheControl: { type: "ephemeral" as const } },
-  };
-  const withMarker = (m: ModelMessage): ModelMessage => ({
-    ...m,
-    providerOptions: { ...(m.providerOptions ?? {}), ...marker },
-  });
-  const out = messages.slice();
-  out[0] = withMarker(out[0]);
-  const lastIdx = out.length - 1;
-  if (lastIdx > 0) out[lastIdx] = withMarker(out[lastIdx]);
+): { instructions: SystemModelMessage[]; messages: ModelMessage[] } {
+  if (provider !== "anthropic") return { instructions, messages };
+  const outInstructions = instructions.slice();
+  if (outInstructions.length > 0) outInstructions[0] = withCacheMarker(outInstructions[0]);
+  const outMessages = messages.slice();
+  const lastIdx = outMessages.length - 1;
+  if (lastIdx >= 0) outMessages[lastIdx] = withCacheMarker(outMessages[lastIdx]);
+  return { instructions: outInstructions, messages: outMessages };
+}
+
+// Fix 3: drop the tools that are provably inert without an active terminal
+// tab — they cost real schema tokens on every call regardless of whether
+// they're used, and can't do anything useful with nothing to act on. Search
+// (grep/glob), subagent, todo, and managed-agent tools are left untouched:
+// those are real capability a task may need regardless of terminal state,
+// not something safe to guess about.
+const TERMINAL_ONLY_TOOLS = new Set([
+  "bash_background",
+  "bash_logs",
+  "bash_list",
+  "bash_kill",
+  "suggest_command",
+  "open_preview",
+  "get_terminal_output",
+]);
+
+function trimTerminalOnlyTools<T extends Record<string, unknown>>(
+  tools: T,
+  ctx: ToolContext,
+): T {
+  if (ctx.getTerminalContext() !== null) return tools;
+  const out = { ...tools };
+  for (const name of TERMINAL_ONLY_TOOLS) delete out[name];
   return out;
+}
+
+// Fix 4: once 2+ newer tool-result messages exist after an older one, drop
+// its (potentially large) file/command output — the model already moved
+// past it, and every later step otherwise re-pays to carry it in context.
+function pruneToolHistory(messages: ModelMessage[]): ModelMessage[] {
+  const toolMsgIdx: number[] = [];
+  messages.forEach((m, i) => {
+    if (m.role === "tool") toolMsgIdx.push(i);
+  });
+  const keepFrom =
+    toolMsgIdx.length > 2 ? toolMsgIdx[toolMsgIdx.length - 2] : -1;
+  return messages.map((m, i) => {
+    if (m.role !== "tool" || i >= keepFrom || !Array.isArray(m.content))
+      return m;
+    return {
+      ...m,
+      content: m.content.map((part) => {
+        if (part.type !== "tool-result") return part;
+        const out = part.output as
+          | { type?: string; value?: Record<string, unknown> }
+          | Record<string, unknown>;
+        const val =
+          out && typeof out === "object" && "value" in out
+            ? (out as { value?: Record<string, unknown> }).value
+            : (out as Record<string, unknown>);
+        if (
+          val &&
+          typeof val === "object" &&
+          typeof val.content === "string" &&
+          val.content.length > 200
+        ) {
+          const trimmedVal = {
+            ...val,
+            content: "[omitted — superseded by a later step]",
+          };
+          const trimmedOut =
+            out && typeof out === "object" && "value" in out
+              ? { ...out, value: trimmedVal }
+              : trimmedVal;
+          return { ...part, output: trimmedOut };
+        }
+        return part;
+      }),
+    } as ModelMessage;
+  });
 }
 
 export type AgentUsage = {
@@ -434,21 +578,48 @@ export async function runAgentStream(opts: RunAgentOptions) {
     opts.onCompact?.({ droppedCount: compact.droppedCount });
   }
 
-  const messages: ModelMessage[] = [{ role: "system", content: stableSystem }];
+  const instructions: SystemModelMessage[] = [
+    { role: "system", content: stableSystem },
+  ];
   if (opts.planMode) {
-    messages.push({ role: "system", content: PLAN_MODE_PROMPT });
+    instructions.push({ role: "system", content: PLAN_MODE_PROMPT });
   }
-  messages.push(...compactedHistory);
 
-  const finalMessages = applyCacheBreakpoints(messages, provider);
+  const { instructions: finalInstructions, messages: finalMessages } =
+    applyCacheBreakpoints(instructions, compactedHistory, provider);
+
+  // Fix 2 + Fix 5 setup: pre-seed the read-before-edit cache for small,
+  // freshly-started scopes, and derive this turn's protected-file set from
+  // what the user actually asked not to touch.
+  await preSeedReadCacheForSmallCwd(opts.toolContext);
+  const effectiveToolContext: ToolContext = {
+    ...opts.toolContext,
+    protectedFiles: extractProtectedFiles(latestUserText(opts.uiMessages)),
+  };
+  const tools = trimTerminalOnlyTools(
+    buildTools(effectiveToolContext),
+    effectiveToolContext,
+  );
 
   let stepsSeen = 0;
   return streamText({
     model,
+    instructions: finalInstructions,
     messages: finalMessages,
-    tools: buildTools(opts.toolContext),
+    // The stable system prompt is embedded as messages[0] above rather than
+    // passed via the separate `system`/`instructions` option. That was
+    // already true before this change, but adding `prepareStep` (which
+    // returns a `messages` override per step) pushes the request through a
+    // stricter per-step validation path that rejects an embedded system
+    // message unless this is declared explicitly — observed as
+    // AI_InvalidPromptError without it, on both ai@7.0.42 and ai@7.0.77.
+    allowSystemInMessages: true,
+    tools,
     stopWhen: stepCountIs(MAX_AGENT_STEPS),
     abortSignal: opts.abortSignal,
+    prepareStep: ({ messages: stepMessages }) => ({
+      messages: pruneToolHistory(stepMessages),
+    }),
     onStepFinish: (step) => {
       stepsSeen++;
       if (opts.onStep) {
