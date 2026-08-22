@@ -37,3 +37,33 @@ describe("resolveTierModel", () => {
     expect(resolveTierModel("light", pool, {}, 5_000_000)).toBe(smallLight);
   });
 });
+
+describe("resolveTierModel friction", () => {
+  const light2: ModelInfo = {
+    id: "qwen-flaky",
+    provider: "groq",
+    label: "Small (flaky)",
+    hint: "small",
+    description: "light tier, second candidate",
+    capabilities: { intelligence: 2, speed: 5, cost: 5 },
+  };
+  const pool2 = [smallLight, light2, bigHeavy];
+
+  it("prefers a non-flagged candidate in the same tier over a flagged one", () => {
+    const isHighFriction = (id: string) => id === "qwen-3-32b";
+    expect(resolveTierModel("light", pool2, {}, undefined, isHighFriction)).toBe(
+      light2,
+    );
+  });
+
+  it("still returns the only candidate in a tier even if it's flagged", () => {
+    const isHighFriction = () => true;
+    expect(resolveTierModel("heavy", pool2, {}, undefined, isHighFriction)).toBe(
+      bigHeavy,
+    );
+  });
+
+  it("ignores friction entirely when the callback is omitted (unchanged behavior)", () => {
+    expect(resolveTierModel("light", pool2, {})).toBe(smallLight);
+  });
+});

@@ -7,6 +7,7 @@ import {
   getAllKeys,
   hasAnyKey,
 } from "../lib/keyring";
+import { hydrateModelFriction } from "../lib/modelFriction";
 import { useAiAgentsStore } from "../store/aiAgentsStore";
 import { useAiChatStore } from "../store/aiChatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
@@ -98,6 +99,7 @@ export function useAiBootstrap(): {
     void hydrateSessions();
     void useAiAgentsStore.getState().hydrate();
     void useSnippetsStore.getState().hydrate();
+    void hydrateModelFriction();
   }, [hydrateSessions]);
 
   return { hasComposer, keysLoaded };

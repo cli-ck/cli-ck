@@ -45,12 +45,18 @@ export function availableModelsForTiers(keys: ProviderKeys): ModelInfo[] {
  *  models whose context window comfortably fits the current conversation —
  *  routing a turn to a tier so small it immediately forces a lossy history
  *  compaction isn't actually a saving. Omit it for callers that aren't
- *  resolving a model for a real request (e.g. a cost-savings estimate). */
+ *  resolving a model for a real request (e.g. a cost-savings estimate).
+ *
+ *  `isHighFriction`, when passed, de-prioritizes (never excludes outright) a
+ *  candidate that's been unreliable — see modelFriction.ts. A tier with only
+ *  a flagged candidate still returns it; friction only breaks ties within a
+ *  tier, it never leaves the caller with nothing. */
 export function resolveTierModel(
   tier: ModelTier,
   available: readonly ModelInfo[],
   overrides: Partial<Record<ModelTier, string>>,
   estimatedTokens?: number,
+  isHighFriction?: (modelId: string) => boolean,
 ): ModelInfo | undefined {
   const pool =
     estimatedTokens != null
@@ -67,7 +73,12 @@ export function resolveTierModel(
       const m = searchPool.find((x) => x.id === overrideId);
       if (m) return m;
     }
-    return searchPool.find((x) => deriveModelTier(x) === t);
+    const inTier = searchPool.filter((x) => deriveModelTier(x) === t);
+    if (isHighFriction) {
+      const healthy = inTier.find((x) => !isHighFriction(x.id));
+      if (healthy) return healthy;
+    }
+    return inTier[0];
   };
   for (let i = startIdx; i < TIER_ORDER.length; i++) {
     const hit = tryTier(TIER_ORDER[i]);

@@ -162,6 +162,11 @@ export type Preferences = {
   /** User overrides for which model represents each tier. Unset tiers fall
    *  back to auto-derivation (see deriveModelTier / resolveTierModel). */
   modelTiers: Partial<Record<ModelTier, string>>;
+  /** Free-text, user-written notes per model id ("times out on large
+   *  refactors", "great at Rust, weak at CSS") — surfaced back into that
+   *  model's system prompt when it's in use. See modelFriction.ts for the
+   *  auto-captured counterpart (step-cap hits, errors). */
+  modelNotes: Record<string, string>;
   vimMode: boolean;
   editorWordWrap: boolean;
   showHidden: boolean;
@@ -213,6 +218,7 @@ const KEY_GROQ_STT_MODEL = "groqSttModel";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_MODEL_TIERS = "modelTiers";
+const KEY_MODEL_NOTES = "modelNotes";
 const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
@@ -281,6 +287,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   favoriteModelIds: [],
   recentModelIds: [],
   modelTiers: {},
+  modelNotes: {},
   vimMode: false,
   editorWordWrap: false,
   showHidden: false,
@@ -415,6 +422,9 @@ export async function loadPreferences(): Promise<Preferences> {
     modelTiers:
       get<Partial<Record<ModelTier, string>>>(KEY_MODEL_TIERS) ??
       DEFAULT_PREFERENCES.modelTiers,
+    modelNotes:
+      get<Record<string, string>>(KEY_MODEL_NOTES) ??
+      DEFAULT_PREFERENCES.modelNotes,
     vimMode: get<boolean>(KEY_VIM_MODE) ?? DEFAULT_PREFERENCES.vimMode,
     editorWordWrap:
       get<boolean>(KEY_EDITOR_WORD_WRAP) ?? DEFAULT_PREFERENCES.editorWordWrap,
@@ -647,6 +657,12 @@ export async function setModelTiers(
   await writePref(KEY_MODEL_TIERS, value);
 }
 
+export async function setModelNotes(
+  value: Record<string, string>,
+): Promise<void> {
+  await writePref(KEY_MODEL_NOTES, value);
+}
+
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
 }
@@ -791,6 +807,7 @@ export async function onPreferencesChange(
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_MODEL_TIERS]: "modelTiers",
+    [KEY_MODEL_NOTES]: "modelNotes",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",

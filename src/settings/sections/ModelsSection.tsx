@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_MODEL_ID,
@@ -62,6 +63,7 @@ import {
   setDefaultModel,
   setFavoriteModelIds,
   setModelTiers,
+  setModelNotes,
   setLmstudioBaseURL,
   setLmstudioModelId,
   setMlxBaseURL,
@@ -89,7 +91,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -169,6 +171,7 @@ export function ModelsSection() {
   const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
   const modelTiers = usePreferencesStore((s) => s.modelTiers);
+  const modelNotes = usePreferencesStore((s) => s.modelNotes);
 
   useEffect(() => {
     void getAllKeys().then(setKeys);
@@ -381,6 +384,13 @@ export function ModelsSection() {
         configuredIds={configuredIds}
         keys={keys}
         modelTiers={modelTiers}
+      />
+
+      <ModelNotesBlock
+        keys={keys}
+        modelTiers={modelTiers}
+        modelNotes={modelNotes}
+        defaultModel={defaultModel}
       />
 
       <VoiceBlock keys={keys} />
@@ -801,6 +811,104 @@ function ModelTiersBlock({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+const MODEL_NOTES_SAVE_DEBOUNCE_MS = 500;
+
+function ModelNotesBlock({
+  keys,
+  modelTiers,
+  modelNotes,
+  defaultModel,
+}: {
+  keys: KeysMap;
+  modelTiers: Partial<Record<ModelTier, string>>;
+  modelNotes: Record<string, string>;
+  defaultModel: ModelId;
+}) {
+  const available = availableModelsForTiers(keys);
+  // The models actually in play right now: whichever concrete model each
+  // tier resolves to, plus the default — not the whole catalog. A model
+  // that already has a note stays listed even if it later drops out of
+  // every tier, so a written note is never silently orphaned off-screen.
+  const relevantIds = new Set<string>([defaultModel]);
+  for (const tier of Object.keys(TIER_LABELS) as ModelTier[]) {
+    const resolved = resolveTierModel(tier, available, modelTiers);
+    if (resolved) relevantIds.add(resolved.id);
+  }
+  for (const id of Object.keys(modelNotes)) relevantIds.add(id);
+
+  const rows = Array.from(relevantIds)
+    .map((id) => available.find((m) => m.id === id) ?? { id, label: id })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Label>Model notes</Label>
+      <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
+        <p className="text-[11px] text-muted-foreground">
+          What you've learned about each model — fed back into that model's
+          own system prompt. E.g. "loses track past ~15 tool calls, keep
+          instructions to it short" or "great at Rust, avoid for CSS."
+        </p>
+        {rows.map((m) => (
+          <ModelNoteRow
+            key={m.id}
+            modelId={m.id}
+            modelLabel={m.label}
+            value={modelNotes[m.id] ?? ""}
+            allNotes={modelNotes}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ModelNoteRow({
+  modelId,
+  modelLabel,
+  value,
+  allNotes,
+}: {
+  modelId: string;
+  modelLabel: string;
+  value: string;
+  allNotes: Record<string, string>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const timerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => setDraft(value), [value]);
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  const onChange = (next: string) => {
+    setDraft(next);
+    window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      const trimmed = next.trim();
+      const nextNotes = { ...allNotes };
+      if (trimmed) nextNotes[modelId] = trimmed;
+      else delete nextNotes[modelId];
+      void setModelNotes(nextNotes);
+    }, MODEL_NOTES_SAVE_DEBOUNCE_MS);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] tracking-tight text-muted-foreground">
+        {modelLabel}
+      </span>
+      <Textarea
+        value={draft}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="No notes yet"
+        className="min-h-9 py-2 text-[11.5px]"
+      />
     </div>
   );
 }
