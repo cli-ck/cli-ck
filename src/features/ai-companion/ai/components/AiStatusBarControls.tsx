@@ -41,22 +41,28 @@ import {
   Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   compatModelIdForEndpoint,
+  DEFAULT_MODEL_ID,
   getCompatModelInfo,
   getModel,
   isCompatModelId,
-  MODELS,
+  isKnownModelId,
   providerNeedsKey,
   PROVIDERS,
   STT_PROVIDER_LABELS,
   type ModelCapabilities,
-  type ModelId,
   type ModelInfo,
   type ProviderId,
 } from "../config";
 import { ACCEPTED_FILES, useComposer } from "../lib/aiComposer";
+import {
+  CATALOG_PROVIDERS,
+  useAllEffectiveModels,
+  useLiveModel,
+  useModelCatalogStore,
+} from "../lib/modelDiscovery";
 import { toggleFavoriteModel } from "../lib/modelPrefs";
 import { useAiChatStore } from "../store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
@@ -141,7 +147,7 @@ export function AiStatusBarControls() {
           disabled={c.isBusy || c.voice.transcribing || !c.voice.hasKey}
           className={cn(
             c.voice.recording &&
-            "bg-destructive/10 text-destructive hover:bg-destructive/15",
+              "bg-destructive/10 text-destructive hover:bg-destructive/15",
           )}
         >
           {c.voice.recording ? (
@@ -215,9 +221,12 @@ function ModelDropdown() {
   const favoriteIds = usePreferencesStore((s) => s.favoriteModelIds);
   const recentIds = usePreferencesStore((s) => s.recentModelIds);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
+  const liveModel = useLiveModel(selected);
   const current = isCompatModelId(selected)
     ? getCompatModelInfo(selected, customEndpoints)
-    : getModel(selected as ModelId);
+    : isKnownModelId(selected)
+      ? getModel(selected)
+      : (liveModel ?? getModel(DEFAULT_MODEL_ID));
   const [search, setSearch] = useState("");
   const [activeProvider, setActiveProvider] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
@@ -248,9 +257,19 @@ function ModelDropdown() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKeys]);
 
+  const effectiveModels = useAllEffectiveModels();
+  const refreshCatalog = useModelCatalogStore((s) => s.refresh);
+
+  useEffect(() => {
+    for (const id of CATALOG_PROVIDERS) {
+      if (!providerNeedsKey(id) || apiKeys[id])
+        void refreshCatalog(id, apiKeys[id]);
+    }
+  }, [apiKeys, refreshCatalog]);
+
   const allModels = useMemo(
-    () => [...MODELS, ...epModelInfos],
-    [epModelInfos],
+    () => [...effectiveModels, ...epModelInfos],
+    [effectiveModels, epModelInfos],
   );
 
   const COMPAT_PROVIDER_ID = "__compat__";
@@ -372,22 +391,21 @@ function ModelDropdown() {
               active={activeProvider === null}
               onClick={() => setActiveProvider(null)}
             />
-            {[...sortedProviders.configured, ...sortedProviders.unconfigured].map(
-              (p) => (
-                <ProviderPill
-                  key={p.id}
-                  icon={PROVIDER_ICON[p.id]}
-                  title={
-                    hasKeyFor(p.id)
-                      ? p.label
-                      : `${p.label} — not configured`
-                  }
-                  active={activeProvider === p.id}
-                  muted={!hasKeyFor(p.id)}
-                  onClick={() => setActiveProvider(p.id)}
-                />
-              ),
-            )}
+            {[
+              ...sortedProviders.configured,
+              ...sortedProviders.unconfigured,
+            ].map((p) => (
+              <ProviderPill
+                key={p.id}
+                icon={PROVIDER_ICON[p.id]}
+                title={
+                  hasKeyFor(p.id) ? p.label : `${p.label} — not configured`
+                }
+                active={activeProvider === p.id}
+                muted={!hasKeyFor(p.id)}
+                onClick={() => setActiveProvider(p.id)}
+              />
+            ))}
             {customEndpoints.length > 0 && (
               <ProviderPill
                 icon={PlugIcon}
@@ -429,10 +447,7 @@ function ModelDropdown() {
                   key={m.id}
                   model={m}
                   selected={m.id === selected}
-                  hasKey={
-                    isCompatModelId(m.id) ||
-                    hasKeyFor(m.provider)
-                  }
+                  hasKey={isCompatModelId(m.id) || hasKeyFor(m.provider)}
                   favorite={favoriteIds.includes(m.id)}
                   showProviderIcon={activeProvider === null}
                   onPick={() => {
@@ -525,11 +540,7 @@ function ProviderHeader({ providerId }: { providerId: ProviderId }) {
   if (!p) return null;
   return (
     <div className="flex items-center gap-1.5 px-3 pt-1 pb-1.5 text-[11px] font-medium tracking-tight text-muted-foreground/90">
-      <HugeiconsIcon
-        icon={PROVIDER_ICON[p.id]}
-        size={13}
-        strokeWidth={1.75}
-      />
+      <HugeiconsIcon icon={PROVIDER_ICON[p.id]} size={13} strokeWidth={1.75} />
       <span>{p.label}</span>
     </div>
   );
@@ -644,11 +655,7 @@ function CapabilityBars({ caps }: { caps: ModelCapabilities }) {
     <div className="ml-auto flex items-center gap-1.5">
       <CapBar icon={BrainIcon} value={caps.intelligence} label="Intelligence" />
       <CapBar icon={FlashIcon} value={caps.speed} label="Speed" />
-      <CapBar
-        icon={CoinsDollarIcon}
-        value={caps.cost}
-        label="Affordability"
-      />
+      <CapBar icon={CoinsDollarIcon} value={caps.cost} label="Affordability" />
     </div>
   );
 }
@@ -663,10 +670,7 @@ function CapBar({
   label: string;
 }) {
   return (
-    <span
-      className="flex items-center gap-0.5"
-      title={`${label}: ${value}/5`}
-    >
+    <span className="flex items-center gap-0.5" title={`${label}: ${value}/5`}>
       <HugeiconsIcon
         icon={icon}
         size={10}

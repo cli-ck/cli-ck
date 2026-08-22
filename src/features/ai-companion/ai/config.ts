@@ -109,7 +109,8 @@ export const PROVIDERS: readonly ProviderInfo[] = [
     label: "MLX",
     keyringAccount: "",
     keyPrefix: null,
-    consoleUrl: "https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md",
+    consoleUrl:
+      "https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md",
   },
   {
     id: "ollama",
@@ -229,7 +230,8 @@ export const MODELS = [
     provider: "openai",
     label: "GPT-5.5 Pro",
     hint: "Max",
-    description: "Highest-accuracy version for the hardest professional and agentic tasks.",
+    description:
+      "Highest-accuracy version for the hardest professional and agentic tasks.",
     capabilities: { intelligence: 5, speed: 2, cost: 1 },
     tags: ["vision", "reasoning", "tools", "coding"],
   },
@@ -285,7 +287,8 @@ export const MODELS = [
     provider: "anthropic",
     label: "Claude Sonnet 5",
     hint: "Newest",
-    description: "Latest-generation Claude — frontier reasoning at Sonnet speed and cost.",
+    description:
+      "Latest-generation Claude — frontier reasoning at Sonnet speed and cost.",
     capabilities: { intelligence: 5, speed: 4, cost: 2 },
     tags: ["vision", "reasoning", "tools", "coding"],
   },
@@ -294,7 +297,8 @@ export const MODELS = [
     provider: "anthropic",
     label: "Claude Opus 4.8",
     hint: "Best",
-    description: "Anthropic's most capable model for complex reasoning and long-horizon agentic coding.",
+    description:
+      "Anthropic's most capable model for complex reasoning and long-horizon agentic coding.",
     capabilities: { intelligence: 5, speed: 2, cost: 1 },
     tags: ["vision", "reasoning", "tools", "coding"],
   },
@@ -397,7 +401,8 @@ export const MODELS = [
     provider: "xai",
     label: "Grok 4.5",
     hint: "Newest",
-    description: "Newest Grok — recommended for code and chat, strong agentic tool calling.",
+    description:
+      "Newest Grok — recommended for code and chat, strong agentic tool calling.",
     capabilities: { intelligence: 5, speed: 3, cost: 2 },
     tags: ["vision", "reasoning", "tools", "coding"],
   },
@@ -424,7 +429,8 @@ export const MODELS = [
     provider: "xai",
     label: "Grok 4.3",
     hint: "Flagship",
-    description: "Most intelligent and fastest Grok. Strong agentic tool use and 1M context.",
+    description:
+      "Most intelligent and fastest Grok. Strong agentic tool use and 1M context.",
     capabilities: { intelligence: 5, speed: 4, cost: 2 },
     tags: ["vision", "reasoning", "tools", "coding"],
   },
@@ -433,7 +439,8 @@ export const MODELS = [
     provider: "xai",
     label: "Grok Build 0.1",
     hint: "Coding",
-    description: "Specialized fast coding model for agentic workflows (powers Grok Build CLI).",
+    description:
+      "Specialized fast coding model for agentic workflows (powers Grok Build CLI).",
     capabilities: { intelligence: 4, speed: 5, cost: 4 },
     tags: ["tools", "coding"],
   },
@@ -610,7 +617,9 @@ export function getCompatModelInfo(
     provider: "openai-compatible",
     label: ep?.modelId || name,
     hint: name,
-    description: ep ? `${name} — ${ep.baseURL}` : "Custom OpenAI-compatible endpoint",
+    description: ep
+      ? `${name} — ${ep.baseURL}`
+      : "Custom OpenAI-compatible endpoint",
     capabilities: { intelligence: 3, speed: 3, cost: 3 },
   };
 }
@@ -645,7 +654,10 @@ const FREEFORM_PROVIDERS: ReadonlySet<ProviderId> = new Set([
 
 // Reasoning models reject tool-call turns whose reasoning was stripped; keep it.
 export function modelKeepsReasoning(m: ModelInfo): boolean {
-  return (m.tags?.includes("reasoning") ?? false) || FREEFORM_PROVIDERS.has(m.provider);
+  return (
+    (m.tags?.includes("reasoning") ?? false) ||
+    FREEFORM_PROVIDERS.has(m.provider)
+  );
 }
 
 export const DEFAULT_MODEL_ID: ModelId = "gpt-5.4-mini";
@@ -747,7 +759,11 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 
 export function estimateCost(
   modelId: string | undefined,
-  usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number },
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+  },
 ): number | null {
   if (!modelId) return null;
   const p = MODEL_PRICING[modelId];
@@ -755,7 +771,9 @@ export function estimateCost(
   const fresh = Math.max(0, usage.inputTokens - usage.cachedInputTokens);
   const cached = usage.cachedInputTokens;
   return (
-    (fresh * p.input + cached * (p.cacheRead ?? p.input) + usage.outputTokens * p.output) /
+    (fresh * p.input +
+      cached * (p.cacheRead ?? p.input) +
+      usage.outputTokens * p.output) /
     1_000_000
   );
 }
@@ -805,16 +823,24 @@ export function getAutocompleteEligibleModels(): readonly ModelInfo[] {
   );
 }
 
-export type SttProvider = "openai" | "groq" | "whispercpp";
+export type SttProvider = "openai" | "groq";
 
 export const STT_PROVIDER_LABELS: Record<SttProvider, string> = {
   openai: "OpenAI Whisper",
   groq: "Groq Whisper",
-  whispercpp: "Whisper.cpp (local)",
 };
 
 export const DEFAULT_STT_PROVIDER: SttProvider = "openai";
-export const WHISPERCPP_DEFAULT_BASE_URL = "http://127.0.0.1:8080";
+
+/** Profiles saved before Whisper.cpp was removed as a voice option may still
+ *  have `sttProvider: "whispercpp"` on disk; transcribeAudio only knows
+ *  "openai"/"groq", so remap anything else back to the default instead of
+ *  leaving voice input stuck on "Select a voice provider" forever. */
+export function migrateLegacySttProvider(
+  v: SttProvider | null | undefined,
+): SttProvider {
+  return v === "openai" || v === "groq" ? v : DEFAULT_STT_PROVIDER;
+}
 export const LMSTUDIO_DEFAULT_BASE_URL = "http://localhost:1234/v1";
 export const MLX_DEFAULT_BASE_URL = "http://127.0.0.1:8080/v1";
 export const OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434/v1";

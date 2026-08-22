@@ -28,8 +28,44 @@ import { basename, resolvePath } from "../tools/context";
 import { buildTools, type ToolContext } from "../tools/tools";
 import { compactModelMessagesDetailed } from "./compact";
 import type { ProviderKeys, CustomEndpointKeys } from "./keyring";
+import {
+  CATALOG_PROVIDERS,
+  findLiveModel,
+  useModelCatalogStore,
+} from "./modelDiscovery";
 import { native } from "./native";
 import { createProxyFetch } from "./proxyFetch";
+
+/** resolveModel only knows the static MODELS catalog; a model chosen from a
+ *  provider's live-fetched list needs the same-shaped fallback here too. The
+ *  catalog is populated by a background refresh kicked off from the UI, so a
+ *  cold start (e.g. a saved default that's a live-only model, sent before
+ *  any component has mounted to trigger that refresh) can hit this before
+ *  the catalog has loaded — await one refresh pass across every provider
+ *  with a configured key before giving up. */
+async function resolveModelWithLiveFallback(
+  modelId: string,
+  endpoints: readonly CustomEndpoint[],
+  keys: ProviderKeys,
+) {
+  try {
+    return resolveModel(modelId, endpoints);
+  } catch (e) {
+    const live = findLiveModel(modelId);
+    if (live) return live;
+    await Promise.all(
+      CATALOG_PROVIDERS.map((p) => {
+        const apiKey = keys[p];
+        return apiKey
+          ? useModelCatalogStore.getState().refresh(p, apiKey)
+          : undefined;
+      }),
+    );
+    const liveAfterRefresh = findLiveModel(modelId);
+    if (liveAfterRefresh) return liveAfterRefresh;
+    throw e;
+  }
+}
 
 const localProxyFetch = createProxyFetch({ allowPrivateNetwork: true });
 
@@ -186,8 +222,9 @@ export async function buildLanguageModel(
       break;
     }
     case "deepseek": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "deepseek",
         baseURL: "https://api.deepseek.com",
@@ -196,8 +233,9 @@ export async function buildLanguageModel(
       break;
     }
     case "mistral": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "mistral",
         baseURL: "https://api.mistral.ai/v1",
@@ -211,8 +249,9 @@ export async function buildLanguageModel(
       break;
     }
     case "openrouter": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "openrouter",
         baseURL: "https://openrouter.ai/api/v1",
@@ -230,8 +269,9 @@ export async function buildLanguageModel(
           "OpenAI-compatible provider has no base URL. Set it in Settings → Models.",
         );
       }
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "openai-compatible",
         baseURL: compatURL,
@@ -241,8 +281,9 @@ export async function buildLanguageModel(
       break;
     }
     case "lmstudio": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "lmstudio",
         baseURL: lmstudioURL,
@@ -251,8 +292,9 @@ export async function buildLanguageModel(
       break;
     }
     case "mlx": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "mlx",
         baseURL: mlxURL,
@@ -261,8 +303,9 @@ export async function buildLanguageModel(
       break;
     }
     case "ollama": {
-      const { createOpenAICompatible } =
-        await import("@ai-sdk/openai-compatible");
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
+      );
       built = createOpenAICompatible({
         name: "ollama",
         baseURL: ollamaURL,
@@ -293,7 +336,7 @@ export type LocalProviderConfig = {
   customEndpointKeys?: CustomEndpointKeys;
 };
 
-export function buildConfiguredLanguageModel(
+export async function buildConfiguredLanguageModel(
   modelId: string,
   keys: ProviderKeys,
   local: LocalProviderConfig = {},
@@ -303,9 +346,7 @@ export function buildConfiguredLanguageModel(
     const ep = local.customEndpoints?.find((e) => e.id === eid);
     if (!ep) throw new Error(`Custom endpoint not found: ${eid}`);
     if (!ep.modelId.trim()) {
-      throw new Error(
-        `${ep.name}: no model id set. Open Settings → Models.`,
-      );
+      throw new Error(`${ep.name}: no model id set. Open Settings → Models.`);
     }
     return buildLanguageModel(
       "openai-compatible",
@@ -315,7 +356,7 @@ export function buildConfiguredLanguageModel(
       local.customEndpointKeys?.[eid],
     );
   }
-  const m = resolveModel(modelId);
+  const m = await resolveModelWithLiveFallback(modelId, [], keys);
   let resolvedId: string = m.id;
   if (m.id === "lmstudio-local") {
     if (!local.lmstudioModelId?.trim()) {
@@ -408,10 +449,12 @@ function applyCacheBreakpoints(
 ): { instructions: SystemModelMessage[]; messages: ModelMessage[] } {
   if (provider !== "anthropic") return { instructions, messages };
   const outInstructions = instructions.slice();
-  if (outInstructions.length > 0) outInstructions[0] = withCacheMarker(outInstructions[0]);
+  if (outInstructions.length > 0)
+    outInstructions[0] = withCacheMarker(outInstructions[0]);
   const outMessages = messages.slice();
   const lastIdx = outMessages.length - 1;
-  if (lastIdx >= 0) outMessages[lastIdx] = withCacheMarker(outMessages[lastIdx]);
+  if (lastIdx >= 0)
+    outMessages[lastIdx] = withCacheMarker(outMessages[lastIdx]);
   return { instructions: outInstructions, messages: outMessages };
 }
 
@@ -548,7 +591,11 @@ export async function runAgentStream(opts: RunAgentOptions) {
     customEndpointKeys: opts.customEndpointKeys,
   });
   const endpoints = opts.customEndpoints ?? [];
-  const info = resolveModel(modelId, endpoints);
+  const info = await resolveModelWithLiveFallback(
+    modelId,
+    endpoints,
+    opts.keys,
+  );
   const provider = info.provider;
 
   const stableSystem = buildStableSystem(
