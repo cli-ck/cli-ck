@@ -20,6 +20,13 @@ export type ToolContext = {
   readCache: Map<string, { size: number; hash: number }>;
   /** Active chat session id — used by tools that persist per-session state (todos). */
   getSessionId: () => string | null;
+  /**
+   * Basenames the current task's own prompt said not to touch (e.g. "do not
+   * change foo.test.js"). Populated per-turn by aiAgent.ts from the latest
+   * user message; mutating tools reject writes to these files outright
+   * rather than relying on the model to honor the instruction.
+   */
+  protectedFiles?: Set<string>;
 };
 
 export function resolvePath(rawPath: string, cwd: string | null): string {
@@ -31,4 +38,9 @@ export function resolvePath(rawPath: string, cwd: string | null): string {
     );
   const sep = cwd.includes("\\") && !cwd.includes("/") ? "\\" : "/";
   return cwd.endsWith(sep) ? `${cwd}${rawPath}` : `${cwd}${sep}${rawPath}`;
+}
+
+export function basename(p: string): string {
+  const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return i === -1 ? p : p.slice(i + 1);
 }

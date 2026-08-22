@@ -3,7 +3,17 @@ import { z } from "zod";
 import { native } from "../lib/native";
 import { checkWritableCanonical } from "../lib/security";
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
-import { resolvePath, type ToolContext } from "./context";
+import { basename, resolvePath, type ToolContext } from "./context";
+
+function protectedFileError(ctx: ToolContext, abs: string): EditResult | null {
+  if (ctx.protectedFiles?.has(basename(abs))) {
+    return {
+      error: `Blocked: ${abs} is protected — the current task said not to change this file.`,
+      path: abs,
+    };
+  }
+  return null;
+}
 
 type EditResult =
   | { ok: true; replacements: number; bytesWritten: number; path: string }
@@ -136,6 +146,8 @@ export function buildEditTools(ctx: ToolContext) {
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        const blocked = protectedFileError(ctx, abs);
+        if (blocked) return blocked;
         if (!ctx.readCache.has(abs)) {
           return {
             error:
@@ -173,6 +185,8 @@ export function buildEditTools(ctx: ToolContext) {
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        const blocked = protectedFileError(ctx, abs);
+        if (blocked) return blocked;
         if (!ctx.readCache.has(abs)) {
           return {
             error:

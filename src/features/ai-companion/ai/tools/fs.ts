@@ -6,7 +6,7 @@ import {
   checkWritableCanonical,
 } from "../lib/security";
 import { newQueuedEditId, usePlanStore } from "../store/planStore";
-import { resolvePath, type ToolContext } from "./context";
+import { basename, resolvePath, type ToolContext } from "./context";
 
 const READ_BYTE_CAP = 25 * 1024;
 const READ_LINE_CAP = 2000;
@@ -146,6 +146,12 @@ export function buildFsTools(ctx: ToolContext) {
         const safety = await checkWritableCanonical(reqPath, native.canonicalize);
         if (!safety.ok) return { error: safety.reason, path: reqPath };
         const abs = safety.canonical;
+        if (ctx.protectedFiles?.has(basename(abs))) {
+          return {
+            error: `Blocked: ${abs} is protected — the current task said not to change this file.`,
+            path: abs,
+          };
+        }
 
         if (usePlanStore.getState().active) {
           let original = "";
