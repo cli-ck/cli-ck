@@ -1,5 +1,10 @@
 import { generateText, stepCountIs } from "ai";
-import { DEFAULT_MODEL_ID, getModel, type ModelId } from "../config";
+import {
+  DEFAULT_MODEL_ID,
+  getModel,
+  type ModelId,
+  type ModelTier,
+} from "../config";
 import { buildLanguageModel } from "../lib/aiAgent";
 import type { ProviderKeys } from "../lib/keyring";
 import type { ToolContext } from "../tools/context";
@@ -7,13 +12,21 @@ import { buildFsTools } from "../tools/fs";
 import { buildSearchTools } from "../tools/search";
 import { SUBAGENTS, type SubagentType } from "./registry";
 
-const SUBAGENT_MAX_STEPS = 12;
+/** Step ceiling by requested tier — a "light" spawn should stay cheap even
+ *  when it doesn't converge, not run exactly as long as a "heavy" one.
+ *  Exported for tests only; call sites should go through runSubagent(). */
+export const SUBAGENT_MAX_STEPS: Record<ModelTier, number> = {
+  light: 6,
+  standard: 12,
+  heavy: 20,
+};
 
 type Args = {
   type: SubagentType;
   prompt: string;
   keys: ProviderKeys;
   modelId: string;
+  tier: ModelTier;
   toolContext: ToolContext;
   lmstudioBaseURL?: string;
   onStep?: (label: string) => void;
@@ -30,6 +43,7 @@ export async function runSubagent({
   prompt,
   keys,
   modelId,
+  tier,
   toolContext,
   lmstudioBaseURL,
   onStep,
@@ -59,7 +73,7 @@ export async function runSubagent({
     system: def.systemPrompt,
     prompt,
     tools: tools as Parameters<typeof generateText>[0]["tools"],
-    stopWhen: stepCountIs(SUBAGENT_MAX_STEPS),
+    stopWhen: stepCountIs(SUBAGENT_MAX_STEPS[tier]),
     onStepFinish: (step) => {
       if (!onStep) return;
       const last = step.toolCalls?.[step.toolCalls.length - 1];
