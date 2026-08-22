@@ -134,6 +134,17 @@ export function extractProtectedFiles(promptText: string): Set<string> {
   return out;
 }
 
+/** Union of whatever the caller already had protected (e.g. a worker
+ *  inheriting its parent session's set) with what this turn's own prompt
+ *  text says — never a replace. A delegated step's prompt is not the only
+ *  source of truth for what must stay untouched. */
+export function mergeProtectedFiles(
+  inherited: Set<string> | undefined,
+  derived: Set<string>,
+): Set<string> {
+  return inherited ? new Set([...inherited, ...derived]) : derived;
+}
+
 // Fix 2: skip the mandatory separate read_file round-trip for existing-file
 // edits — but only for a fresh session in a small, directly-scoped
 // directory. Blindly marking every file in a large real project as
@@ -588,6 +599,11 @@ export type RunAgentOptions = {
    *  disposable worker run without duplicating buildTools' wiring. Omit to
    *  keep the full toolset (main session behavior, unchanged). */
   toolFilter?: (toolName: string) => boolean;
+  /** Step ceiling for this run. Omit to use MAX_AGENT_STEPS (main session
+   *  behavior, unchanged) — a disposable worker run passes a tier-scaled
+   *  budget (see SUBAGENT_MAX_STEPS) so a "light" step doesn't cost as much
+   *  runway as a "heavy" one. */
+  maxSteps?: number;
 };
 
 export async function runAgentStream(opts: RunAgentOptions) {
@@ -653,11 +669,18 @@ export async function runAgentStream(opts: RunAgentOptions) {
 
   // Fix 2 + Fix 5 setup: pre-seed the read-before-edit cache for small,
   // freshly-started scopes, and derive this turn's protected-file set from
-  // what the user actually asked not to touch.
+  // what the user actually asked not to touch. Union with whatever the
+  // caller already supplied (e.g. a worker run inheriting the parent
+  // session's protected files) rather than overwriting it — a delegated
+  // step's own prompt text is not the only source of truth for what must
+  // stay untouched.
   await preSeedReadCacheForSmallCwd(opts.toolContext);
   const effectiveToolContext: ToolContext = {
     ...opts.toolContext,
-    protectedFiles: extractProtectedFiles(latestUserText(opts.uiMessages)),
+    protectedFiles: mergeProtectedFiles(
+      opts.toolContext.protectedFiles,
+      extractProtectedFiles(latestUserText(opts.uiMessages)),
+    ),
   };
   let tools = trimTerminalOnlyTools(
     buildTools(effectiveToolContext),
@@ -684,7 +707,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
     // AI_InvalidPromptError without it, on both ai@7.0.42 and ai@7.0.77.
     allowSystemInMessages: true,
     tools,
-    stopWhen: stepCountIs(MAX_AGENT_STEPS),
+    stopWhen: stepCountIs(opts.maxSteps ?? MAX_AGENT_STEPS),
     abortSignal: opts.abortSignal,
     prepareStep: ({ messages: stepMessages }) => ({
       messages: pruneToolHistory(stepMessages),
@@ -722,7 +745,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
       const finishReason =
         (result as { finishReason?: string } | undefined)?.finishReason ?? "";
       opts.onFinishMeta?.({
-        hitStepCap: stepsSeen >= MAX_AGENT_STEPS,
+        hitStepCap: stepsSeen >= (opts.maxSteps ?? MAX_AGENT_STEPS),
         finishReason,
       });
     },

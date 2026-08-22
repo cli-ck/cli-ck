@@ -14,7 +14,17 @@ import type { ToolContext } from "./context";
 
 const TIER_ENUM = z.enum(["light", "standard", "heavy"]);
 
-function buildWorkerDeps(): WorkerDeps {
+/** Default tier per team role when neither `tier` nor `modelId` is given.
+ *  Deliberately spread across tiers (not all "standard") so a team spawned
+ *  with zero overrides still lands on up to three distinct models rather
+ *  than the planner and reviewer silently sharing one. */
+const DEFAULT_TEAM_TIER: Record<"planner" | "builder" | "reviewer", ModelTier> = {
+  planner: "light",
+  builder: "heavy",
+  reviewer: "standard",
+};
+
+function buildWorkerDeps(ctx: ToolContext): WorkerDeps {
   const { apiKeys, customEndpointKeys, live } = useAiChatStore.getState();
   const prefs = usePreferencesStore.getState();
   return {
@@ -40,18 +50,21 @@ function buildWorkerDeps(): WorkerDeps {
       openrouterModelId: prefs.openrouterModelId,
       customEndpoints: prefs.customEndpoints,
     }),
+    protectedFiles: ctx.protectedFiles,
   };
 }
 
 async function spawnAndRun(
+  ctx: ToolContext,
   role: WorkerRole,
   kind: "step" | "team",
   tier: ModelTier,
   prompt: string,
   label: string,
   parentSessionId: string,
+  modelId?: string,
 ) {
-  const handle = createWorkerChat(buildWorkerDeps(), role, tier);
+  const handle = createWorkerChat(buildWorkerDeps(ctx), role, tier, modelId);
   useWorkerRunsStore.getState().register({
     id: handle.id,
     role,
@@ -64,7 +77,7 @@ async function spawnAndRun(
   });
   try {
     const result = await runWorkerToCompletion(handle, prompt);
-    useWorkerRunsStore.getState().setStatus(handle.id, "done");
+    useWorkerRunsStore.getState().setStatus(handle.id, result.timedOut ? "error" : "done");
     return {
       role,
       modelId: handle.modelId,
@@ -101,6 +114,7 @@ export function buildWorkerTools(ctx: ToolContext) {
         const sessionId = ctx.getSessionId();
         if (!sessionId) return { error: "no active chat session" };
         return spawnAndRun(
+          ctx,
           "step",
           "step",
           tier ?? "standard",
@@ -123,8 +137,14 @@ export function buildWorkerTools(ctx: ToolContext) {
                 .string()
                 .min(1)
                 .describe("Self-contained instruction for this teammate."),
+              modelId: z
+                .string()
+                .optional()
+                .describe(
+                  "Exact model id for this teammate, to guarantee it differs from another role (e.g. a model id you've seen used earlier this conversation). Falls back to tier resolution if unset or not currently available.",
+                ),
               tier: TIER_ENUM.optional().describe(
-                "Model weight class. Omit for the role's default (planner/reviewer: standard, builder: heavy).",
+                "Model weight class, used when modelId is unset. Omit for the role's default (planner: light, builder: heavy, reviewer: standard) — already spread across tiers so a team gets distinct models with zero overrides.",
               ),
               label: z.string().optional(),
             }),
@@ -138,12 +158,14 @@ export function buildWorkerTools(ctx: ToolContext) {
         const results = await Promise.all(
           teammates.map((t) =>
             spawnAndRun(
+              ctx,
               t.role,
               "team",
-              t.tier ?? (t.role === "builder" ? "heavy" : "standard"),
+              t.tier ?? DEFAULT_TEAM_TIER[t.role],
               t.prompt,
               t.label ?? t.role,
               sessionId,
+              t.modelId,
             ),
           ),
         );

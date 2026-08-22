@@ -3,6 +3,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type ChatTransport,
 } from "ai";
+import { SUBAGENT_MAX_STEPS } from "../agents/runSubagent";
 import { DEFAULT_MODEL_ID, type ModelTier } from "../config";
 import type { ToolContext } from "../tools/context";
 import {
@@ -14,14 +15,18 @@ import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
 
 /** Tools a disposable worker must never see: spawning another worker/team or
  *  an external CLI agent recursively, or reaching into the parent session's
- *  managed-agent state (worker sessions are their own throwaway id). */
-const RECURSION_BLOCKED_TOOLS = new Set([
+ *  managed-agent state (worker sessions are their own throwaway id) — plus
+ *  todo_write, which persists to disk keyed by session id (see lib/todos.ts)
+ *  and would otherwise leave an orphaned `todos:worker:<uuid>` entry behind
+ *  forever since a worker session is never explicitly deleted. */
+const WORKER_BLOCKED_TOOLS = new Set([
   "run_subagent",
   "spawn_worker",
   "spawn_team",
   "spawn_coding_agent",
   "send_to_agent",
   "read_agent_output",
+  "todo_write",
 ]);
 
 export type WorkerRole = "planner" | "builder" | "reviewer" | "step";
@@ -47,6 +52,11 @@ export type WorkerDeps = {
   getModelTiers: () => Partial<Record<ModelTier, string>>;
   getLocalProviderConfig: () => LocalProviderConfig;
   getCustomEndpointKeys: () => CustomEndpointKeys;
+  /** Protected-file basenames inherited from the parent session (see
+   *  aiAgent.ts) — enforced regardless of whether the delegating prompt
+   *  restates them, so a worker can't accidentally touch a file the
+   *  original request said not to. */
+  protectedFiles?: Set<string>;
 };
 
 export type WorkerHandle = {
@@ -66,26 +76,39 @@ const READ_ONLY_TOOLS = new Set([
 /** Pure — the actual tool-access decision per role, directly testable
  *  without constructing a Chat (see workerRun.test.ts). planner/reviewer
  *  never get a mutating tool no matter what buildTools returns; builder/step
- *  get everything except the recursion-prone tools. */
+ *  get everything except the blocked tools (recursion + session-scoped
+ *  persistence a worker shouldn't touch). */
 export function toolFilterForRole(role: WorkerRole): (name: string) => boolean {
   if (role === "planner" || role === "reviewer") {
     return (name) => READ_ONLY_TOOLS.has(name);
   }
-  return (name) => !RECURSION_BLOCKED_TOOLS.has(name);
+  return (name) => !WORKER_BLOCKED_TOOLS.has(name);
 }
 
 /** Builds a fresh, non-persisted Chat for one worker run. Never registered in
  *  the session store's `chats` map (see aiChatStore.ts) — nothing about it is
- *  written to disk, and it's discarded once the caller drops the reference. */
+ *  written to disk, and it's discarded once the caller drops the reference.
+ *
+ *  `modelIdOverride`, when given and currently available, is used directly
+ *  instead of resolving `tier` — lets a caller (e.g. spawn_team) pin an
+ *  exact model per role instead of only picking from the tier bucket. Falls
+ *  back to tier resolution if the id isn't available (key missing, model no
+ *  longer in the live catalog, ...). */
 export function createWorkerChat(
   deps: WorkerDeps,
   role: WorkerRole,
   tier: ModelTier,
+  modelIdOverride?: string,
 ): WorkerHandle {
   const id = `worker:${crypto.randomUUID()}`;
   const available = availableModelsForTiers(deps.getKeys());
-  const resolved = resolveTierModel(tier, available, deps.getModelTiers());
-  const modelId = resolved?.id ?? DEFAULT_MODEL_ID;
+  const overrideHit = modelIdOverride
+    ? available.find((m) => m.id === modelIdOverride)
+    : undefined;
+  const modelId =
+    overrideHit?.id ??
+    resolveTierModel(tier, available, deps.getModelTiers())?.id ??
+    DEFAULT_MODEL_ID;
 
   const readCache = new Map<string, { size: number; hash: number }>();
   const toolContext: ToolContext = {
@@ -99,6 +122,7 @@ export function createWorkerChat(
     readAgentOutput: () => null,
     readCache,
     getSessionId: () => id,
+    protectedFiles: deps.protectedFiles,
   };
 
   const transport = createContextAwareTransport({
@@ -119,6 +143,7 @@ export function createWorkerChat(
     getLocalProviderConfig: deps.getLocalProviderConfig,
     getCustomEndpointKeys: deps.getCustomEndpointKeys,
     toolFilter: toolFilterForRole(role),
+    maxSteps: SUBAGENT_MAX_STEPS[tier],
   }) as unknown as ChatTransport<UIMessage>;
 
   const chat = new Chat<UIMessage>({
@@ -143,6 +168,14 @@ function hasPendingApproval(messages: readonly UIMessage[]): boolean {
 const POLL_MS = 150;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Worker runs are unattended (no live user watching every one, especially
+ *  under spawn_team). Without a ceiling, a worker stuck on an approval
+ *  nobody answers — or a main-turn abort that abandons it — polls forever:
+ *  a leaked timer plus, worse, a live provider stream that keeps running
+ *  and billing after everyone stopped caring. Generous enough for a real
+ *  multi-step build; still a hard stop. */
+export const WORKER_TIMEOUT_MS = 10 * 60_000;
+
 function isSettled(chat: WorkerHandle["chat"]): boolean {
   return (
     chat.status !== "submitted" &&
@@ -157,21 +190,34 @@ function isSettled(chat: WorkerHandle["chat"]): boolean {
  *  response, so completion has to be observed by polling chat state). Two
  *  consecutive "settled" polls are required before returning — a single
  *  check can land in the brief gap between an approval response landing and
- *  `sendAutomaticallyWhen` kicking off the resumed request. */
+ *  `sendAutomaticallyWhen` kicking off the resumed request.
+ *
+ *  Past WORKER_TIMEOUT_MS the run is force-stopped via chat.stop() (aborts
+ *  the in-flight request) rather than left to poll indefinitely. */
 export async function runWorkerToCompletion(
   handle: WorkerHandle,
   prompt: string,
-): Promise<{ summary: string; toolCalls: number }> {
+): Promise<{ summary: string; toolCalls: number; timedOut: boolean }> {
   const { chat } = handle;
   await chat.sendMessage({ text: prompt });
+  const deadline = Date.now() + WORKER_TIMEOUT_MS;
   let consecutiveSettled = 0;
+  let timedOut = false;
   while (consecutiveSettled < 2) {
     if (isSettled(chat)) {
       consecutiveSettled++;
     } else {
       consecutiveSettled = 0;
     }
+    if (consecutiveSettled >= 2) break;
+    if (Date.now() >= deadline) {
+      timedOut = true;
+      break;
+    }
     await sleep(POLL_MS);
+  }
+  if (timedOut) {
+    await chat.stop();
   }
   const last = chat.messages[chat.messages.length - 1];
   const summary =
@@ -191,7 +237,10 @@ export async function runWorkerToCompletion(
     );
   }, 0);
   return {
-    summary: summary || (chat.status === "error" ? "(worker errored)" : "(no output)"),
+    summary: timedOut
+      ? `(worker timed out after ${Math.round(WORKER_TIMEOUT_MS / 60_000)} minutes — likely stuck awaiting approval; stopped)`
+      : summary || (chat.status === "error" ? "(worker errored)" : "(no output)"),
     toolCalls,
+    timedOut,
   };
 }

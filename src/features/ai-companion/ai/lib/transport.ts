@@ -95,8 +95,9 @@ type Deps = {
     autoTier: ModelTier | null;
   }) => void;
   getPlanMode?: () => boolean;
-  /** See RunAgentOptions.toolFilter in aiAgent.ts. */
+  /** See RunAgentOptions.toolFilter / maxSteps in aiAgent.ts. */
   toolFilter?: (toolName: string) => boolean;
+  maxSteps?: number;
   getModelNotes?: () => Record<string, string>;
 };
 
@@ -185,6 +186,7 @@ export function createContextAwareTransport(deps: Deps) {
       uiMessages: messagesForRun,
       abortSignal: options.abortSignal,
       toolFilter: deps.toolFilter,
+      maxSteps: deps.maxSteps,
     });
     return result.toUIMessageStream({
       originalMessages: options.messages,
