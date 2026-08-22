@@ -593,6 +593,14 @@ export async function runAgentStream(opts: RunAgentOptions) {
   return streamText({
     model,
     messages: finalMessages,
+    // The stable system prompt is embedded as messages[0] above rather than
+    // passed via the separate `system`/`instructions` option. That was
+    // already true before this change, but adding `prepareStep` (which
+    // returns a `messages` override per step) pushes the request through a
+    // stricter per-step validation path that rejects an embedded system
+    // message unless this is declared explicitly — observed as
+    // AI_InvalidPromptError without it, on both ai@7.0.42 and ai@7.0.77.
+    allowSystemInMessages: true,
     tools,
     stopWhen: stepCountIs(MAX_AGENT_STEPS),
     abortSignal: opts.abortSignal,
