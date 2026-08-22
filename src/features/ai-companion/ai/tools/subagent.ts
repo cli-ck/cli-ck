@@ -59,6 +59,7 @@ Auto-executes (no approval) — subagents are read-only by design.`,
             prompt,
             keys: apiKeys,
             modelId,
+            tier: requestedTier,
             toolContext: ctx,
             onStep: (label) => patchAgentMeta({ step: label }),
           });
