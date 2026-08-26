@@ -32,6 +32,39 @@ fn parse_launch_dir() -> Option<String> {
     None
 }
 
+// always_on_top is a system-wide floating level, not "above the main window"
+// — left on permanently, settings floats over every other app too. Keep it
+// on only while cli-ck itself is frontmost: gaining focus on either window
+// restores it immediately; losing focus on either drops it unless the other
+// cli-ck window has since taken focus (moving focus main <-> settings within
+// the app must not disable it). The other window's own Focused(true) can lag
+// a tick behind this one's Focused(false), so give it a moment to land
+// before deciding the whole app — not just this window — lost focus.
+#[cfg(target_os = "macos")]
+fn sync_settings_always_on_top(handle: &tauri::AppHandle, focused_now: bool) {
+    if focused_now {
+        if let Some(settings) = handle.get_webview_window("settings") {
+            let _ = settings.set_always_on_top(true);
+        }
+        return;
+    }
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let any_cli_ck_window_focused = ["main", "settings"].into_iter().any(|label| {
+            handle
+                .get_webview_window(label)
+                .and_then(|w| w.is_focused().ok())
+                .unwrap_or(false)
+        });
+        if !any_cli_ck_window_focused {
+            if let Some(settings) = handle.get_webview_window("settings") {
+                let _ = settings.set_always_on_top(false);
+            }
+        }
+    });
+}
+
 #[tauri::command]
 async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Result<(), String> {
     let url_path = match tab.as_deref() {
@@ -107,6 +140,18 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         }
     }
 
+    // Settings starts floating above main (#33). Keep it that way only while
+    // the app itself is frontmost — see sync_settings_always_on_top.
+    #[cfg(target_os = "macos")]
+    {
+        let handle = app.clone();
+        window.on_window_event(move |event| {
+            if let WindowEvent::Focused(focused) = event {
+                sync_settings_always_on_top(&handle, *focused);
+            }
+        });
+    }
+
     Ok(())
 }
 
@@ -151,6 +196,9 @@ pub fn run() {
                         if let Some(settings) = handle.get_webview_window("settings") {
                             let _ = settings.close();
                         }
+                    }
+                    if let WindowEvent::Focused(focused) = event {
+                        sync_settings_always_on_top(&handle, *focused);
                     }
                 });
             }
