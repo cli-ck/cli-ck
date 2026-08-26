@@ -11,7 +11,7 @@ const CALLBACK_PATH = "/callback";
 
 /** OpenRouter's own OAuth PKCE login (https://openrouter.ai/docs/use-cases/oauth-pkce).
  *  The exchange returns a normal, user-controlled OpenRouter API key, so once
- *  this resolves the connection is stored exactly like a pasted key — no
+ *  this resolves the connection is stored exactly like a pasted key, no
  *  separate OAuth credential type needed for this provider. */
 export async function loginWithOpenRouter(): Promise<void> {
   const pkce = await generatePkce();

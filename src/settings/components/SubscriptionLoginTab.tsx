@@ -26,9 +26,9 @@ type SubscriptionProvider = {
 
 // Codex (ChatGPT) is added in a follow-up slice, reusing the same listener
 // and dropdown. Claude Pro/Max is deliberately not in this list, see
-// docs/adr/0016-subscription-login-claude-experimental.md — Anthropic
-// actively bans accounts for third-party subscription reuse, so that stays
-// API-key-only for now.
+// docs/adr/0016-subscription-login-claude-experimental.md for how Claude
+// Code is handled instead (delegated to an installed claude CLI, not
+// OAuth), added in a later slice.
 const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProvider[] = [
   {
     id: "openrouter",

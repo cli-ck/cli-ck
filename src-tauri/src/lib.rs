@@ -301,7 +301,7 @@ pub fn run() {
             net::lm_ping,
             net::ai_http_request,
             net::ai_http_stream,
-            oauth::oauth_listen,
+            oauth::oauth_loopback_listen,
             history::history_suggest,
             history::history_commands,
             history::history_record,
