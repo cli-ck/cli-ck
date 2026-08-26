@@ -13,6 +13,7 @@ import {
   type CustomEndpoint,
   type ModelId,
   type ModelTier,
+  type ProviderId,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
 import type {
@@ -154,6 +155,11 @@ export type Preferences = {
   openaiCompatibleModelId: string;
   openaiCompatibleContextLimit: number;
   customEndpoints: CustomEndpoint[];
+  /** Providers explicitly added on the Providers tab (via "Add provider").
+   *  Deliberately separate from whether a provider is actually usable
+   *  (has a key, or a subscription login) — connecting a subscription
+   *  should not by itself make its card appear there. */
+  addedProviderIds: ProviderId[];
   openrouterModelId: string;
   sttProvider: SttProvider;
   groqSttModel: string;
@@ -212,6 +218,7 @@ const KEY_OPENAI_COMPAT_BASE_URL = "openaiCompatibleBaseURL";
 const KEY_OPENAI_COMPAT_MODEL_ID = "openaiCompatibleModelId";
 const KEY_OPENAI_COMPAT_CONTEXT_LIMIT = "openaiCompatibleContextLimit";
 const KEY_CUSTOM_ENDPOINTS = "customEndpoints";
+const KEY_ADDED_PROVIDER_IDS = "addedProviderIds";
 const KEY_OPENROUTER_MODEL_ID = "openrouterModelId";
 const KEY_STT_PROVIDER = "sttProvider";
 const KEY_GROQ_STT_MODEL = "groqSttModel";
@@ -281,6 +288,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   openaiCompatibleModelId: "",
   openaiCompatibleContextLimit: 128_000,
   customEndpoints: [],
+  addedProviderIds: [],
   openrouterModelId: "",
   sttProvider: DEFAULT_STT_PROVIDER,
   groqSttModel: "whisper-large-v3-turbo",
@@ -407,6 +415,9 @@ export async function loadPreferences(): Promise<Preferences> {
         crypto.randomUUID().slice(0, 8),
       );
     })(),
+    addedProviderIds:
+      get<ProviderId[]>(KEY_ADDED_PROVIDER_IDS) ??
+      DEFAULT_PREFERENCES.addedProviderIds,
     openrouterModelId:
       get<string>(KEY_OPENROUTER_MODEL_ID) ??
       DEFAULT_PREFERENCES.openrouterModelId,
@@ -631,6 +642,12 @@ export async function setCustomEndpoints(
   await writePref(KEY_CUSTOM_ENDPOINTS, value);
 }
 
+export async function setAddedProviderIds(
+  value: ProviderId[],
+): Promise<void> {
+  await writePref(KEY_ADDED_PROVIDER_IDS, value);
+}
+
 export async function setOpenrouterModelId(value: string): Promise<void> {
   await writePref(KEY_OPENROUTER_MODEL_ID, value);
 }
@@ -795,6 +812,7 @@ export async function onPreferencesChange(
     [KEY_OPENAI_COMPAT_MODEL_ID]: "openaiCompatibleModelId",
     [KEY_OPENAI_COMPAT_CONTEXT_LIMIT]: "openaiCompatibleContextLimit",
     [KEY_CUSTOM_ENDPOINTS]: "customEndpoints",
+    [KEY_ADDED_PROVIDER_IDS]: "addedProviderIds",
     [KEY_OPENROUTER_MODEL_ID]: "openrouterModelId",
     [KEY_STT_PROVIDER]: "sttProvider",
     [KEY_GROQ_STT_MODEL]: "groqSttModel",

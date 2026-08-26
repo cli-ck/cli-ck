@@ -56,6 +56,7 @@ import { useAiChatStore } from "@/features/ai-companion/ai/store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import {
   emitKeysChanged,
+  setAddedProviderIds,
   setAutocompleteEnabled,
   setAutocompleteModelId,
   setAutocompleteProvider,
@@ -154,7 +155,6 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
 export function ModelsSection() {
   const [keys, setKeys] = useState<KeysMap | null>(null);
   const [epKeys, setEpKeys] = useState<CustomEndpointKeys>({});
-  const [adding, setAdding] = useState<Set<ProviderId>>(new Set());
   const [codexConnected, setCodexConnected] = useState(false);
   const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
   const [claudeCliDetected, setClaudeCliDetected] = useState(false);
@@ -174,6 +174,7 @@ export function ModelsSection() {
   );
   const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
+  const addedProviderIds = usePreferencesStore((s) => s.addedProviderIds);
 
   const refreshKeys = useCallback(() => {
     void getAllKeys().then(setKeys);
@@ -370,13 +371,16 @@ export function ModelsSection() {
   const configuredIds = new Set(
     PROVIDERS.filter((p) => isConfigured(p.id)).map((p) => p.id),
   );
-  const visibleIds = new Set<ProviderId>(configuredIds);
-  for (const id of adding) visibleIds.add(id);
+  // Deliberately independent of configuredIds: connecting a subscription
+  // (Codex, Claude CLI, or OpenRouter login) makes a provider usable for
+  // chat without adding its card here — only an explicit "Add provider"
+  // does that.
+  const addedIds = new Set<ProviderId>(addedProviderIds);
   const visibleProviders = PROVIDERS.filter(
-    (p) => p.id !== "openai-compatible" && visibleIds.has(p.id),
+    (p) => p.id !== "openai-compatible" && addedIds.has(p.id),
   );
   const addableProviders = PROVIDERS.filter(
-    (p) => p.id !== "openai-compatible" && !visibleIds.has(p.id),
+    (p) => p.id !== "openai-compatible" && !addedIds.has(p.id),
   );
 
   const refreshAllCatalogs = () => {
@@ -401,15 +405,13 @@ export function ModelsSection() {
     } else {
       void onClearKey(id);
     }
-    setAdding((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    void setAddedProviderIds(addedProviderIds.filter((x) => x !== id));
   };
 
   const addProvider = (id: ProviderId) => {
-    setAdding((prev) => new Set(prev).add(id));
+    if (!addedProviderIds.includes(id)) {
+      void setAddedProviderIds([...addedProviderIds, id]);
+    }
   };
 
   return (
