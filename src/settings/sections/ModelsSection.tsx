@@ -10,7 +10,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
@@ -23,7 +22,6 @@ import {
   isKnownModelId,
   MODELS,
   type ModelId,
-  type ModelTier,
   PROVIDERS,
   type ProviderId,
   type ProviderInfo,
@@ -54,10 +52,6 @@ import {
   getPreferredAuthMethod,
   setPreferredAuthMethod,
 } from "@/features/ai-companion/ai/lib/oauth/codexAuth";
-import {
-  availableModelsForTiers,
-  resolveTierModel,
-} from "@/features/ai-companion/ai/lib/modelTiers";
 import { useAiChatStore } from "@/features/ai-companion/ai/store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import {
@@ -73,7 +67,6 @@ import {
   setLmstudioModelId,
   setMlxBaseURL,
   setMlxModelId,
-  setModelNotes,
   setOllamaBaseURL,
   setOllamaModelId,
   setOpenaiCompatibleBaseURL,
@@ -97,7 +90,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -181,8 +174,6 @@ export function ModelsSection() {
   );
   const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
-  const modelTiers = usePreferencesStore((s) => s.modelTiers);
-  const modelNotes = usePreferencesStore((s) => s.modelNotes);
 
   const refreshKeys = useCallback(() => {
     void getAllKeys().then(setKeys);
@@ -435,12 +426,10 @@ export function ModelsSection() {
         customEndpoints={customEndpoints}
       />
 
-      <ModelNotesBlock
-        keys={keys}
-        modelTiers={modelTiers}
-        modelNotes={modelNotes}
-        defaultModel={defaultModel}
-      />
+      {/* Model notes: not pulling its weight right now, mostly showing
+          auto-picked models the person never configured. Disabled rather
+          than deleted, ModelNotesBlock/ModelNoteRow below still work if we
+          bring it back. */}
 
       <VoiceBlock keys={keys} />
 
@@ -760,6 +749,12 @@ function DefaultModelPicker({
   );
 }
 
+// Model notes: disabled, wasn't pulling its weight — mostly surfaced
+// auto-picked models the person never configured. Kept here, not deleted,
+// in case it's worth reviving with a tighter "actually configured" filter.
+// To restore: re-add the `modelTiers`/`modelNotes` selectors near the top
+// of ModelsSection and the <ModelNotesBlock .../> call in its JSX.
+/*
 const TIER_LABELS: Record<ModelTier, string> = {
   light: "Light",
   standard: "Standard",
@@ -863,6 +858,7 @@ function ModelNoteRow({
     </div>
   );
 }
+*/
 
 function AutocompleteRow({
   keys,
