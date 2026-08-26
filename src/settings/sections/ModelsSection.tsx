@@ -48,6 +48,7 @@ import {
   useModelCatalogStore,
   useModelIdSuggestions,
 } from "@/features/ai-companion/ai/lib/modelDiscovery";
+import { detectClaudeCli } from "@/features/ai-companion/ai/lib/claudeCli";
 import {
   getCodexAuth,
   getPreferredAuthMethod,
@@ -164,6 +165,8 @@ export function ModelsSection() {
   const [adding, setAdding] = useState<Set<ProviderId>>(new Set());
   const [codexConnected, setCodexConnected] = useState(false);
   const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
+  const [claudeCliDetected, setClaudeCliDetected] = useState(false);
+  const [anthropicUsesClaudeCli, setAnthropicUsesClaudeCli] = useState(true);
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -187,6 +190,10 @@ export function ModelsSection() {
     void getCodexAuth().then((auth) => setCodexConnected(!!auth));
     void getPreferredAuthMethod("openai").then((m) =>
       setOpenaiUsesLogin(m !== "apikey"),
+    );
+    void detectClaudeCli().then((path) => setClaudeCliDetected(!!path));
+    void getPreferredAuthMethod("anthropic").then((m) =>
+      setAnthropicUsesClaudeCli(m !== "apikey"),
     );
   }, []);
 
@@ -324,9 +331,39 @@ export function ModelsSection() {
     }
   };
 
+  // The provider card only needs the key-vs-login switch when a person has
+  // both a pasted key AND a subscription connection for the same provider,
+  // otherwise there's nothing to choose between.
+  const authMethodSwitchFor = (
+    id: ProviderId,
+  ):
+    | { usingLogin: boolean; onChange: (usingLogin: boolean) => void }
+    | undefined => {
+    if (id === "openai" && codexConnected && keys?.[id] != null) {
+      return {
+        usingLogin: openaiUsesLogin,
+        onChange: (usingLogin) => {
+          setOpenaiUsesLogin(usingLogin);
+          void setPreferredAuthMethod("openai", usingLogin ? "oauth" : "apikey");
+        },
+      };
+    }
+    if (id === "anthropic" && claudeCliDetected && keys?.[id] != null) {
+      return {
+        usingLogin: anthropicUsesClaudeCli,
+        onChange: (usingLogin) => {
+          setAnthropicUsesClaudeCli(usingLogin);
+          void setPreferredAuthMethod("anthropic", usingLogin ? "oauth" : "apikey");
+        },
+      };
+    }
+    return undefined;
+  };
+
   const isConfigured = (id: ProviderId): boolean => {
     if (id === "openrouter") return !!keys?.[id] && !!openrouterModelId.trim();
     if (id === "openai") return !!keys?.[id] || codexConnected;
+    if (id === "anthropic") return !!keys?.[id] || claudeCliDetected;
     if (!isLocalProvider(id)) return !!keys?.[id];
     const cfg = localConfig(id);
     if (!cfg) return false;
@@ -488,20 +525,7 @@ export function ModelsSection() {
                     onSave={(v) => onSaveKey(p.id, v)}
                     onClear={() => onClearKey(p.id)}
                     onRemove={() => removeProvider(p.id)}
-                    authMethodSwitch={
-                      p.id === "openai" && codexConnected && keys[p.id] != null
-                        ? {
-                            usingLogin: openaiUsesLogin,
-                            onChange: (usingLogin) => {
-                              setOpenaiUsesLogin(usingLogin);
-                              void setPreferredAuthMethod(
-                                "openai",
-                                usingLogin ? "oauth" : "apikey",
-                              );
-                            },
-                          }
-                        : undefined
-                    }
+                    authMethodSwitch={authMethodSwitchFor(p.id)}
                   />
                 ),
               )}
@@ -524,6 +548,7 @@ export function ModelsSection() {
           <SubscriptionLoginTab
             keys={keys}
             codexConnected={codexConnected}
+            claudeCliDetected={claudeCliDetected}
             onLoggedIn={refreshKeys}
           />
         </TabsContent>

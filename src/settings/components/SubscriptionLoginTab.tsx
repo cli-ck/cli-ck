@@ -8,55 +8,71 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import type { ProviderId } from "@/features/ai-companion/ai/config";
+import { refreshClaudeCliDetection } from "@/features/ai-companion/ai/lib/claudeCli";
 import { loginWithCodex } from "@/features/ai-companion/ai/lib/oauth/codex";
 import { loginWithOpenRouter } from "@/features/ai-companion/ai/lib/oauth/openrouter";
 import {
   ArrowDown01Icon,
   CheckmarkCircle02Icon,
+  Refresh01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 
+type ConnectionState = {
+  keys: Record<ProviderId, string | null>;
+  codexConnected: boolean;
+  claudeCliDetected: boolean;
+};
+
 type SubscriptionProvider = {
   id: ProviderId;
   label: string;
   description: string;
-  login: () => Promise<void>;
+  /** Claude has no login step, it's either found on PATH or it isn't, so
+   *  this is absent for that entry and the UI shows detection status
+   *  instead of a Login button. */
+  login?: () => Promise<void>;
   /** OpenRouter's login lands in the regular key slot, so presence there is
-   *  enough. Codex's login is a separate access/refresh credential, not a
-   *  key, so it needs its own check instead of `keys[id]`. */
-  isConnected: (keys: Record<ProviderId, string | null>, codexConnected: boolean) => boolean;
+   *  enough. Codex's login and Claude's detection are their own thing, not
+   *  a key, so each needs its own check instead of `keys[id]`. */
+  isConnected: (state: ConnectionState) => boolean;
 };
 
-// Claude Pro/Max is deliberately not in this list, see
-// docs/adr/0016-subscription-login-claude-experimental.md for how Claude
-// Code is handled instead (delegated to an installed claude CLI, not
-// OAuth), added in a later slice.
 const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProvider[] = [
   {
     id: "openrouter",
     label: "OpenRouter",
     description: "Connects your OpenRouter account. No API key to copy.",
     login: loginWithOpenRouter,
-    isConnected: (keys) => !!keys.openrouter,
+    isConnected: (s) => !!s.keys.openrouter,
   },
   {
     id: "openai",
     label: "Codex (ChatGPT)",
     description: "Connects your ChatGPT Plus/Pro subscription.",
     login: loginWithCodex,
-    isConnected: (_keys, codexConnected) => codexConnected,
+    isConnected: (s) => s.codexConnected,
+  },
+  {
+    id: "anthropic",
+    label: "Claude Code",
+    description:
+      "Uses your own installed, already logged in claude CLI, the same way the official app does. Install and log in with `claude login` first.",
+    isConnected: (s) => s.claudeCliDetected,
   },
 ];
 
 export function SubscriptionLoginTab({
   keys,
   codexConnected,
+  claudeCliDetected,
   onLoggedIn,
 }: {
   keys: Record<ProviderId, string | null>;
   codexConnected: boolean;
+  claudeCliDetected: boolean;
   onLoggedIn: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<ProviderId | null>(null);
@@ -64,10 +80,11 @@ export function SubscriptionLoginTab({
   const [error, setError] = useState<string | null>(null);
 
   const selected = SUBSCRIPTION_PROVIDERS.find((p) => p.id === selectedId);
-  const connected = !!selected && selected.isConnected(keys, codexConnected);
+  const connected =
+    !!selected && selected.isConnected({ keys, codexConnected, claudeCliDetected });
 
   const login = async () => {
-    if (!selected) return;
+    if (!selected?.login) return;
     setStatus("connecting");
     setError(null);
     try {
@@ -78,6 +95,11 @@ export function SubscriptionLoginTab({
       setStatus("error");
       setError(e instanceof Error ? e.message : String(e));
     }
+  };
+
+  const recheckClaudeCli = async () => {
+    await refreshClaudeCliDetection();
+    onLoggedIn();
   };
 
   return (
@@ -144,9 +166,9 @@ export function SubscriptionLoginTab({
                 size={9}
                 strokeWidth={2}
               />
-              Connected
+              {selected.login ? "Connected" : "Detected"}
             </Badge>
-          ) : (
+          ) : selected.login ? (
             <Button
               size="sm"
               onClick={() => void login()}
@@ -156,6 +178,21 @@ export function SubscriptionLoginTab({
               {status === "connecting" ? <Spinner className="size-3" /> : null}
               Log in with {selected.label}
             </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-[10.5px] text-muted-foreground">
+                Not found on your PATH.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void recheckClaudeCli()}
+                className="h-7 gap-1.5 px-2.5 text-[11px]"
+              >
+                <HugeiconsIcon icon={Refresh01Icon} size={11} strokeWidth={1.75} />
+                Check again
+              </Button>
+            </div>
           )}
           {status === "error" && error ? (
             <p className="text-[10.5px] text-destructive">{error}</p>

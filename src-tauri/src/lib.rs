@@ -1,7 +1,8 @@
 pub mod modules;
 
 use modules::{
-    agent, code_intel, fs, git, history, lsp, net, oauth, pty, secrets, shell, workspace,
+    agent, claude_cli, code_intel, fs, git, history, lsp, net, oauth, pty, secrets, shell,
+    workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -302,6 +303,8 @@ pub fn run() {
             net::ai_http_request,
             net::ai_http_stream,
             oauth::oauth_loopback_listen,
+            claude_cli::claude_cli_detect,
+            claude_cli::claude_cli_run,
             history::history_suggest,
             history::history_commands,
             history::history_record,

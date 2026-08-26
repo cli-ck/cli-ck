@@ -33,6 +33,7 @@ import {
   findLiveModel,
   useModelCatalogStore,
 } from "./modelDiscovery";
+import { createClaudeCliFetch, detectClaudeCli } from "./claudeCli";
 import { native } from "./native";
 import {
   createCodexFetch,
@@ -198,15 +199,25 @@ export async function buildLanguageModel(
   options: BuildModelOptions = {},
   customEndpointKey?: string | null,
 ): Promise<LanguageModel> {
-  // Codex login stands in for a plain API key on "openai" specifically, so
-  // the "needs a key" guard below has to know about it before it rejects a
-  // Codex-only setup that never has an api key at all.
+  // Codex login stands in for a plain API key on "openai", and a detected
+  // claude CLI stands in for one on "anthropic", so the "needs a key" guard
+  // below has to know about both before it rejects a setup that never has
+  // an api key at all.
   const codexAuth = provider === "openai" ? await getCodexAuth() : null;
-  const useCodex =
-    !!codexAuth &&
-    (await getPreferredAuthMethod("openai")) !== "apikey";
+  const claudeCliPath = provider === "anthropic" ? await detectClaudeCli() : null;
+  const preferredAuthMethod =
+    codexAuth || claudeCliPath
+      ? await getPreferredAuthMethod(provider)
+      : "apikey";
+  const useCodex = !!codexAuth && preferredAuthMethod !== "apikey";
+  const useClaudeCli = !!claudeCliPath && preferredAuthMethod !== "apikey";
 
-  if (providerNeedsKey(provider) && !keys[provider] && !codexAuth) {
+  if (
+    providerNeedsKey(provider) &&
+    !keys[provider] &&
+    !codexAuth &&
+    !claudeCliPath
+  ) {
     throw new Error(
       `No API key configured for ${provider}. Open Settings → AI to add one.`,
     );
@@ -217,7 +228,8 @@ export async function buildLanguageModel(
   const ollamaURL = options.ollamaBaseURL ?? OLLAMA_DEFAULT_BASE_URL;
   const compatURL = options.openaiCompatibleBaseURL ?? "";
   const epKey = customEndpointKey ?? "";
-  const cacheKey = `${provider} ${key} ${epKey} ${resolvedModelId} ${lmstudioURL} ${mlxURL} ${ollamaURL} ${compatURL} ${useCodex ? "codex" : ""}`;
+  const authTag = useCodex ? "codex" : useClaudeCli ? "claude-cli" : "";
+  const cacheKey = `${provider} ${key} ${epKey} ${resolvedModelId} ${lmstudioURL} ${mlxURL} ${ollamaURL} ${compatURL} ${authTag}`;
   const hit = modelCache.get(cacheKey);
   if (hit) return hit;
 
@@ -233,8 +245,22 @@ export async function buildLanguageModel(
       break;
     }
     case "anthropic": {
-      const { createAnthropic } = await import("@ai-sdk/anthropic");
-      built = createAnthropic({ apiKey: key })(resolvedModelId);
+      if (useClaudeCli) {
+        const { createOpenAICompatible } = await import(
+          "@ai-sdk/openai-compatible"
+        );
+        built = createOpenAICompatible({
+          name: "claude-cli",
+          // Never actually dialed, createClaudeCliFetch() intercepts every
+          // call and runs the local CLI instead.
+          baseURL: "http://localhost/claude-cli",
+          apiKey: "claude-cli",
+          fetch: createClaudeCliFetch(),
+        })(resolvedModelId);
+      } else {
+        const { createAnthropic } = await import("@ai-sdk/anthropic");
+        built = createAnthropic({ apiKey: key })(resolvedModelId);
+      }
       break;
     }
     case "google": {
