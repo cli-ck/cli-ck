@@ -49,20 +49,25 @@ export async function clearCodexAuth(): Promise<void> {
   }
 }
 
-/** Whether to use the Codex login or a pasted API key when both are present
- *  for a provider. Stored per-provider so this generalizes past Codex, but
- *  Codex is the only case that exercises it today. */
+/** Whether to use a subscription login or a pasted API key for a provider.
+ *  Stored per-provider. `defaultMethod` is what applies before the person
+ *  has ever chosen: Codex logins are already an explicit action, so "oauth"
+ *  is fine, but Claude CLI is auto-detected off PATH, so it needs "apikey"
+ *  as the default, otherwise merely having the CLI installed would silently
+ *  opt someone in who never asked cli-ck to use it. */
 export async function getPreferredAuthMethod(
   providerId: string,
+  defaultMethod: "apikey" | "oauth" = "oauth",
 ): Promise<"apikey" | "oauth"> {
   try {
     const raw = await invoke<string | null>("secrets_get", {
       service: KEYRING_SERVICE,
       account: `${AUTH_METHOD_ACCOUNT_PREFIX}${providerId}`,
     });
-    return raw === "apikey" ? "apikey" : "oauth";
+    if (raw === "apikey" || raw === "oauth") return raw;
+    return defaultMethod;
   } catch {
-    return "oauth";
+    return defaultMethod;
   }
 }
 

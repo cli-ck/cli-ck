@@ -207,7 +207,10 @@ export async function buildLanguageModel(
   const claudeCliPath = provider === "anthropic" ? await detectClaudeCli() : null;
   const preferredAuthMethod =
     codexAuth || claudeCliPath
-      ? await getPreferredAuthMethod(provider)
+      ? await getPreferredAuthMethod(
+          provider,
+          provider === "anthropic" ? "apikey" : "oauth",
+        )
       : "apikey";
   const useCodex = !!codexAuth && preferredAuthMethod !== "apikey";
   const useClaudeCli = !!claudeCliPath && preferredAuthMethod !== "apikey";
@@ -215,8 +218,8 @@ export async function buildLanguageModel(
   if (
     providerNeedsKey(provider) &&
     !keys[provider] &&
-    !codexAuth &&
-    !claudeCliPath
+    !useCodex &&
+    !useClaudeCli
   ) {
     throw new Error(
       `No API key configured for ${provider}. Open Settings → AI to add one.`,

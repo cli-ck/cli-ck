@@ -74,7 +74,6 @@ import {
   setMlxBaseURL,
   setMlxModelId,
   setModelNotes,
-  setModelTiers,
   setOllamaBaseURL,
   setOllamaModelId,
   setOpenaiCompatibleBaseURL,
@@ -192,7 +191,7 @@ export function ModelsSection() {
       setOpenaiUsesLogin(m !== "apikey"),
     );
     void detectClaudeCli().then((path) => setClaudeCliDetected(!!path));
-    void getPreferredAuthMethod("anthropic").then((m) =>
+    void getPreferredAuthMethod("anthropic", "apikey").then((m) =>
       setAnthropicUsesClaudeCli(m !== "apikey"),
     );
   }, []);
@@ -363,7 +362,8 @@ export function ModelsSection() {
   const isConfigured = (id: ProviderId): boolean => {
     if (id === "openrouter") return !!keys?.[id] && !!openrouterModelId.trim();
     if (id === "openai") return !!keys?.[id] || codexConnected;
-    if (id === "anthropic") return !!keys?.[id] || claudeCliDetected;
+    if (id === "anthropic")
+      return !!keys?.[id] || (claudeCliDetected && anthropicUsesClaudeCli);
     if (!isLocalProvider(id)) return !!keys?.[id];
     const cfg = localConfig(id);
     if (!cfg) return false;
@@ -433,12 +433,6 @@ export function ModelsSection() {
         configuredIds={configuredIds}
         keys={keys}
         customEndpoints={customEndpoints}
-      />
-
-      <ModelTiersBlock
-        configuredIds={configuredIds}
-        keys={keys}
-        modelTiers={modelTiers}
       />
 
       <ModelNotesBlock
@@ -549,6 +543,7 @@ export function ModelsSection() {
             keys={keys}
             codexConnected={codexConnected}
             claudeCliDetected={claudeCliDetected}
+            claudeCliEnabled={anthropicUsesClaudeCli}
             onLoggedIn={refreshKeys}
           />
         </TabsContent>
@@ -770,122 +765,6 @@ const TIER_LABELS: Record<ModelTier, string> = {
   standard: "Standard",
   heavy: "Heavy",
 };
-
-function ModelTiersBlock({
-  configuredIds,
-  keys,
-  modelTiers,
-}: {
-  configuredIds: Set<ProviderId>;
-  keys: KeysMap;
-  modelTiers: Partial<Record<ModelTier, string>>;
-}) {
-  const liveModels = useModelCatalogStore((s) => s.models);
-  const available = availableModelsForTiers(keys);
-  const hasAny = configuredIds.size > 0;
-
-  const setTier = async (tier: ModelTier, modelId: string | null) => {
-    const next = { ...modelTiers };
-    if (modelId) next[tier] = modelId;
-    else delete next[tier];
-    await setModelTiers(next);
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Label>Model tiers</Label>
-      <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
-        <p className="text-[11px] text-muted-foreground">
-          Powers Auto mode and subagent delegation. Unset tiers pick a
-          configured model automatically by capability.
-        </p>
-        {(Object.keys(TIER_LABELS) as ModelTier[]).map((tier) => {
-          const resolved = resolveTierModel(tier, available, modelTiers);
-          return (
-            <FieldRow key={tier} label={TIER_LABELS[tier]}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={!hasAny}
-                    className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
-                  >
-                    {resolved ? (
-                      <span className="flex items-center gap-2 truncate">
-                        <ProviderIcon provider={resolved.provider} size={13} />
-                        <span className="truncate">{resolved.label}</span>
-                        {!modelTiers[tier] && (
-                          <span className="text-muted-foreground">· auto</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="truncate text-muted-foreground">
-                        Add a provider to assign a model
-                      </span>
-                    )}
-                    <HugeiconsIcon
-                      icon={ArrowDown01Icon}
-                      size={11}
-                      strokeWidth={2}
-                      className="opacity-70"
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  side="bottom"
-                  sideOffset={6}
-                  collisionPadding={12}
-                  className="min-w-70 p-1"
-                >
-                  <div className="max-h-72 overflow-y-auto overscroll-contain pr-1">
-                    <DropdownMenuItem
-                      onSelect={() => void setTier(tier, null)}
-                      className="text-[12px] text-muted-foreground"
-                    >
-                      Auto (recommended)
-                    </DropdownMenuItem>
-                    {PROVIDERS.filter((p) => configuredIds.has(p.id)).map(
-                      (p) => {
-                        const models = effectiveModelsFor(liveModels, p.id);
-                        if (models.length === 0) return null;
-                        return (
-                          <div key={p.id} className="px-1 pt-1.5 first:pt-1">
-                            <div className="mb-0.5 flex items-center gap-1.5 px-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                              <ProviderIcon provider={p.id} size={11} />
-                              <span>{p.label}</span>
-                            </div>
-                            {models.map((mod) => (
-                              <DropdownMenuItem
-                                key={mod.id}
-                                onSelect={() => void setTier(tier, mod.id)}
-                                className={cn(
-                                  "flex items-start gap-2 text-[12px]",
-                                  mod.id === modelTiers[tier] && "bg-accent/50",
-                                )}
-                              >
-                                <span className="flex flex-1 flex-col">
-                                  <span>{mod.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {mod.description}
-                                  </span>
-                                </span>
-                              </DropdownMenuItem>
-                            ))}
-                          </div>
-                        );
-                      },
-                    )}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </FieldRow>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 const MODEL_NOTES_SAVE_DEBOUNCE_MS = 500;
 

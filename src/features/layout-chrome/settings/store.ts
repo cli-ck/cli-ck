@@ -651,12 +651,6 @@ export async function setRecentModelIds(value: string[]): Promise<void> {
   await writePref(KEY_RECENT_MODELS, value);
 }
 
-export async function setModelTiers(
-  value: Partial<Record<ModelTier, string>>,
-): Promise<void> {
-  await writePref(KEY_MODEL_TIERS, value);
-}
-
 export async function setModelNotes(
   value: Record<string, string>,
 ): Promise<void> {
