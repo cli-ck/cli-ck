@@ -44,8 +44,8 @@ jobs:
           gh release download "$TAG" \
             --repo cli-ck/cli-ck \
             --pattern "cli-ck_${VERSION}_amd64.deb" \
-            --pattern "cli-ck_x64.app.tar.gz" \
-            --pattern "cli-ck_aarch64.app.tar.gz"
+            --pattern "cli-ck_${VERSION}_x64.app.tar.gz" \
+            --pattern "cli-ck_${VERSION}_aarch64.app.tar.gz"
 
       - name: Compute SRI hashes
         id: hashes
@@ -53,12 +53,23 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
           hash_sri() {
+            if [ ! -s "$1" ]; then
+              echo "::error::asset not found or empty: $1" >&2
+              exit 1
+            fi
             openssl dgst -sha256 -binary "$1" | base64 | tr -d '\n'
           }
+          # Assign before interpolating: exit inside hash_sri only aborts the
+          # run via -e when the substitution is a bare assignment — embedded
+          # in an echo's argument string, echo's own success would swallow it
+          # and silently commit a placeholder "sha256-" hash, like before.
+          linux_hash="$(hash_sri "cli-ck_${VERSION}_amd64.deb")"
+          x64_darwin_hash="$(hash_sri "cli-ck_${VERSION}_x64.app.tar.gz")"
+          aarch64_darwin_hash="$(hash_sri "cli-ck_${VERSION}_aarch64.app.tar.gz")"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "linux=sha256-$(hash_sri "cli-ck_${VERSION}_amd64.deb")" >> "$GITHUB_OUTPUT"
-          echo "x64-darwin=sha256-$(hash_sri "cli-ck_x64.app.tar.gz")" >> "$GITHUB_OUTPUT"
-          echo "aarch64-darwin=sha256-$(hash_sri "cli-ck_aarch64.app.tar.gz")" >> "$GITHUB_OUTPUT"
+          echo "linux=sha256-$linux_hash" >> "$GITHUB_OUTPUT"
+          echo "x64-darwin=sha256-$x64_darwin_hash" >> "$GITHUB_OUTPUT"
+          echo "aarch64-darwin=sha256-$aarch64_darwin_hash" >> "$GITHUB_OUTPUT"
 
       - name: Update nix/sources.json
         run: |

@@ -13,11 +13,11 @@ let
       hash = sources.hashes.x86_64-linux;
     };
     x86_64-darwin = fetchurl {
-      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_x64.app.tar.gz";
+      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_${version}_x64.app.tar.gz";
       hash = sources.hashes.x86_64-darwin;
     };
     aarch64-darwin = fetchurl {
-      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_aarch64.app.tar.gz";
+      url = "https://github.com/cli-ck/cli-ck/releases/download/v${version}/cli-ck_${version}_aarch64.app.tar.gz";
       hash = sources.hashes.aarch64-darwin;
     };
   };
