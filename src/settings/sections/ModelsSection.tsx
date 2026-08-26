@@ -49,6 +49,11 @@ import {
   useModelIdSuggestions,
 } from "@/features/ai-companion/ai/lib/modelDiscovery";
 import {
+  getCodexAuth,
+  getPreferredAuthMethod,
+  setPreferredAuthMethod,
+} from "@/features/ai-companion/ai/lib/oauth/codexAuth";
+import {
   availableModelsForTiers,
   resolveTierModel,
 } from "@/features/ai-companion/ai/lib/modelTiers";
@@ -92,7 +97,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -157,6 +162,8 @@ export function ModelsSection() {
   const [keys, setKeys] = useState<KeysMap | null>(null);
   const [epKeys, setEpKeys] = useState<CustomEndpointKeys>({});
   const [adding, setAdding] = useState<Set<ProviderId>>(new Set());
+  const [codexConnected, setCodexConnected] = useState(false);
+  const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -175,13 +182,17 @@ export function ModelsSection() {
   const modelTiers = usePreferencesStore((s) => s.modelTiers);
   const modelNotes = usePreferencesStore((s) => s.modelNotes);
 
-  const refreshKeys = () => {
+  const refreshKeys = useCallback(() => {
     void getAllKeys().then(setKeys);
-  };
+    void getCodexAuth().then((auth) => setCodexConnected(!!auth));
+    void getPreferredAuthMethod("openai").then((m) =>
+      setOpenaiUsesLogin(m !== "apikey"),
+    );
+  }, []);
 
   useEffect(() => {
-    void getAllKeys().then(setKeys);
-  }, []);
+    refreshKeys();
+  }, [refreshKeys]);
 
   useEffect(() => {
     void getAllCustomEndpointKeys(customEndpoints).then(setEpKeys);
@@ -315,6 +326,7 @@ export function ModelsSection() {
 
   const isConfigured = (id: ProviderId): boolean => {
     if (id === "openrouter") return !!keys?.[id] && !!openrouterModelId.trim();
+    if (id === "openai") return !!keys?.[id] || codexConnected;
     if (!isLocalProvider(id)) return !!keys?.[id];
     const cfg = localConfig(id);
     if (!cfg) return false;
@@ -476,6 +488,20 @@ export function ModelsSection() {
                     onSave={(v) => onSaveKey(p.id, v)}
                     onClear={() => onClearKey(p.id)}
                     onRemove={() => removeProvider(p.id)}
+                    authMethodSwitch={
+                      p.id === "openai" && codexConnected && keys[p.id] != null
+                        ? {
+                            usingLogin: openaiUsesLogin,
+                            onChange: (usingLogin) => {
+                              setOpenaiUsesLogin(usingLogin);
+                              void setPreferredAuthMethod(
+                                "openai",
+                                usingLogin ? "oauth" : "apikey",
+                              );
+                            },
+                          }
+                        : undefined
+                    }
                   />
                 ),
               )}
@@ -495,7 +521,11 @@ export function ModelsSection() {
         </TabsContent>
 
         <TabsContent value="subscription-login">
-          <SubscriptionLoginTab keys={keys} onLoggedIn={refreshKeys} />
+          <SubscriptionLoginTab
+            keys={keys}
+            codexConnected={codexConnected}
+            onLoggedIn={refreshKeys}
+          />
         </TabsContent>
       </Tabs>
     </div>

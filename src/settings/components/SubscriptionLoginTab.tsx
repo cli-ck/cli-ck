@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import type { ProviderId } from "@/features/ai-companion/ai/config";
+import { loginWithCodex } from "@/features/ai-companion/ai/lib/oauth/codex";
 import { loginWithOpenRouter } from "@/features/ai-companion/ai/lib/oauth/openrouter";
 import {
   ArrowDown01Icon,
@@ -22,10 +23,13 @@ type SubscriptionProvider = {
   label: string;
   description: string;
   login: () => Promise<void>;
+  /** OpenRouter's login lands in the regular key slot, so presence there is
+   *  enough. Codex's login is a separate access/refresh credential, not a
+   *  key, so it needs its own check instead of `keys[id]`. */
+  isConnected: (keys: Record<ProviderId, string | null>, codexConnected: boolean) => boolean;
 };
 
-// Codex (ChatGPT) is added in a follow-up slice, reusing the same listener
-// and dropdown. Claude Pro/Max is deliberately not in this list, see
+// Claude Pro/Max is deliberately not in this list, see
 // docs/adr/0016-subscription-login-claude-experimental.md for how Claude
 // Code is handled instead (delegated to an installed claude CLI, not
 // OAuth), added in a later slice.
@@ -35,14 +39,24 @@ const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProvider[] = [
     label: "OpenRouter",
     description: "Connects your OpenRouter account. No API key to copy.",
     login: loginWithOpenRouter,
+    isConnected: (keys) => !!keys.openrouter,
+  },
+  {
+    id: "openai",
+    label: "Codex (ChatGPT)",
+    description: "Connects your ChatGPT Plus/Pro subscription.",
+    login: loginWithCodex,
+    isConnected: (_keys, codexConnected) => codexConnected,
   },
 ];
 
 export function SubscriptionLoginTab({
   keys,
+  codexConnected,
   onLoggedIn,
 }: {
   keys: Record<ProviderId, string | null>;
+  codexConnected: boolean;
   onLoggedIn: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<ProviderId | null>(null);
@@ -50,7 +64,7 @@ export function SubscriptionLoginTab({
   const [error, setError] = useState<string | null>(null);
 
   const selected = SUBSCRIPTION_PROVIDERS.find((p) => p.id === selectedId);
-  const connected = !!selected && !!keys[selected.id];
+  const connected = !!selected && selected.isConnected(keys, codexConnected);
 
   const login = async () => {
     if (!selected) return;

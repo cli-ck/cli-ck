@@ -34,6 +34,11 @@ import {
   useModelCatalogStore,
 } from "./modelDiscovery";
 import { native } from "./native";
+import {
+  createCodexFetch,
+  getCodexAuth,
+  getPreferredAuthMethod,
+} from "./oauth/codexAuth";
 import { createProxyFetch } from "./proxyFetch";
 
 /** resolveModel only knows the static MODELS catalog; a model chosen from a
@@ -193,7 +198,15 @@ export async function buildLanguageModel(
   options: BuildModelOptions = {},
   customEndpointKey?: string | null,
 ): Promise<LanguageModel> {
-  if (providerNeedsKey(provider) && !keys[provider]) {
+  // Codex login stands in for a plain API key on "openai" specifically, so
+  // the "needs a key" guard below has to know about it before it rejects a
+  // Codex-only setup that never has an api key at all.
+  const codexAuth = provider === "openai" ? await getCodexAuth() : null;
+  const useCodex =
+    !!codexAuth &&
+    (await getPreferredAuthMethod("openai")) !== "apikey";
+
+  if (providerNeedsKey(provider) && !keys[provider] && !codexAuth) {
     throw new Error(
       `No API key configured for ${provider}. Open Settings → AI to add one.`,
     );
@@ -204,7 +217,7 @@ export async function buildLanguageModel(
   const ollamaURL = options.ollamaBaseURL ?? OLLAMA_DEFAULT_BASE_URL;
   const compatURL = options.openaiCompatibleBaseURL ?? "";
   const epKey = customEndpointKey ?? "";
-  const cacheKey = `${provider} ${key} ${epKey} ${resolvedModelId} ${lmstudioURL} ${mlxURL} ${ollamaURL} ${compatURL}`;
+  const cacheKey = `${provider} ${key} ${epKey} ${resolvedModelId} ${lmstudioURL} ${mlxURL} ${ollamaURL} ${compatURL} ${useCodex ? "codex" : ""}`;
   const hit = modelCache.get(cacheKey);
   if (hit) return hit;
 
@@ -212,7 +225,11 @@ export async function buildLanguageModel(
   switch (provider) {
     case "openai": {
       const { createOpenAI } = await import("@ai-sdk/openai");
-      built = createOpenAI({ apiKey: key })(resolvedModelId);
+      built = useCodex
+        ? createOpenAI({ apiKey: "codex-oauth", fetch: createCodexFetch() }).responses(
+            resolvedModelId,
+          )
+        : createOpenAI({ apiKey: key })(resolvedModelId);
       break;
     }
     case "anthropic": {
