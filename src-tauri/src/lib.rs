@@ -107,6 +107,41 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         }
     }
 
+    // always_on_top is a system-wide floating level, not "above the main
+    // window" — left on permanently it floats over every other app too.
+    // Drop it when settings loses focus and the main window isn't what took
+    // that focus (i.e. the whole app, not just this window, went to the
+    // background); restore it on refocus. Checking main's focus state right
+    // away races its own Focused(true) event when focus is merely moving
+    // settings -> main within the app, so give that event a moment to land.
+    #[cfg(target_os = "macos")]
+    {
+        let handle = app.clone();
+        window.on_window_event(move |event| match event {
+            WindowEvent::Focused(true) => {
+                if let Some(settings) = handle.get_webview_window("settings") {
+                    let _ = settings.set_always_on_top(true);
+                }
+            }
+            WindowEvent::Focused(false) => {
+                let handle = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    let main_took_focus = handle
+                        .get_webview_window("main")
+                        .and_then(|w| w.is_focused().ok())
+                        .unwrap_or(false);
+                    if !main_took_focus {
+                        if let Some(settings) = handle.get_webview_window("settings") {
+                            let _ = settings.set_always_on_top(false);
+                        }
+                    }
+                });
+            }
+            _ => {}
+        });
+    }
+
     Ok(())
 }
 
