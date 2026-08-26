@@ -1,0 +1,3 @@
+# Codex/ChatGPT Subscription Login
+
+We decided to extend Subscription Login to ChatGPT/Codex, letting a user authenticate with their existing ChatGPT account instead of an OpenAI API key, using the same OAuth-plus-local-listener mechanism as [[0014-subscription-login-openrouter]]. OpenAI does not officially endorse this but tolerates it in practice, and other terminal-based coding tools already rely on it, so this ships as a normal option in the Subscription Login dropdown with no extra warning step. As with OpenRouter, a successful login marks the existing OpenAI provider as connected everywhere in the app, governed by the same per-provider key-vs-login switch.
