@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { ProviderInfo } from "@/features/ai-companion/ai/config";
 import {
@@ -23,6 +24,13 @@ type Props = {
   onSave: (key: string) => Promise<void>;
   onClear: () => Promise<void>;
   onRemove?: () => void;
+  /** Shown only when this provider also has a subscription login connected
+   *  (Codex today), so both a key and a login exist and something has to
+   *  pick which one actually gets used. */
+  authMethodSwitch?: {
+    usingLogin: boolean;
+    onChange: (usingLogin: boolean) => void;
+  };
 };
 
 function maskKey(key: string): string {
@@ -36,6 +44,7 @@ export function ProviderKeyCard({
   onSave,
   onClear,
   onRemove,
+  authMethodSwitch,
 }: Props) {
   const [editing, setEditing] = useState(!currentKey);
   const [value, setValue] = useState("");
@@ -108,6 +117,20 @@ export function ProviderKeyCard({
           </Button>
         ) : null}
       </div>
+
+      {authMethodSwitch ? (
+        <div className="flex items-center gap-2 text-[10.5px] text-muted-foreground">
+          <Switch
+            checked={authMethodSwitch.usingLogin}
+            onCheckedChange={authMethodSwitch.onChange}
+          />
+          <span>
+            {authMethodSwitch.usingLogin
+              ? "Using the Subscription Login connection"
+              : "Using the API key below"}
+          </span>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="flex flex-col gap-1.5">

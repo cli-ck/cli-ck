@@ -9,28 +9,35 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DEFAULT_MODEL_ID,
-  MODELS,
-  PROVIDERS,
-  STT_PROVIDER_LABELS,
+  type CustomEndpoint,
   compatModelIdForEndpoint,
+  DEFAULT_MODEL_ID,
   getAutocompleteEligibleModels,
   getCompatModelInfo,
   getModel,
   getProvider,
   isCompatModelId,
   isKnownModelId,
-  providerNeedsKey,
-  type CustomEndpoint,
+  MODELS,
   type ModelId,
-  type ModelTier,
+  PROVIDERS,
   type ProviderId,
   type ProviderInfo,
+  providerNeedsKey,
+  STT_PROVIDER_LABELS,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
+import {
+  type CustomEndpointKeys,
+  clearCustomEndpointKey,
+  clearKey,
+  getAllCustomEndpointKeys,
+  getAllKeys,
+  setCustomEndpointKey,
+  setKey,
+} from "@/features/ai-companion/ai/lib/keyring";
 import {
   CATALOG_PROVIDERS,
   effectiveModelsFor,
@@ -39,31 +46,24 @@ import {
   useModelCatalogStore,
   useModelIdSuggestions,
 } from "@/features/ai-companion/ai/lib/modelDiscovery";
+import { detectClaudeCli } from "@/features/ai-companion/ai/lib/claudeCli";
 import {
-  availableModelsForTiers,
-  resolveTierModel,
-} from "@/features/ai-companion/ai/lib/modelTiers";
-import {
-  clearKey,
-  clearCustomEndpointKey,
-  getAllKeys,
-  getAllCustomEndpointKeys,
-  setKey,
-  setCustomEndpointKey,
-  type CustomEndpointKeys,
-} from "@/features/ai-companion/ai/lib/keyring";
+  getCodexAuth,
+  getPreferredAuthMethod,
+  setPreferredAuthMethod,
+} from "@/features/ai-companion/ai/lib/oauth/codexAuth";
 import { useAiChatStore } from "@/features/ai-companion/ai/store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import {
   emitKeysChanged,
+  setAddedProviderIds,
   setAutocompleteEnabled,
   setAutocompleteModelId,
   setAutocompleteProvider,
   setCustomEndpoints,
   setDefaultModel,
   setFavoriteModelIds,
-  setModelTiers,
-  setModelNotes,
+  setGroqSttModel,
   setLmstudioBaseURL,
   setLmstudioModelId,
   setMlxBaseURL,
@@ -75,9 +75,9 @@ import {
   setOpenaiCompatibleModelId,
   setOpenrouterModelId,
   setRecentModelIds,
-  setGroqSttModel,
   setSttProvider,
 } from "@/features/layout-chrome/settings/store";
+import { cn } from "@/lib/utils";
 import {
   Add01Icon,
   ArrowDown01Icon,
@@ -91,10 +91,11 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
+import { SubscriptionLoginTab } from "../components/SubscriptionLoginTab";
 
 type KeysMap = Record<ProviderId, string | null>;
 
@@ -154,7 +155,10 @@ const LOCAL_META: Partial<Record<ProviderId, LocalMeta>> = {
 export function ModelsSection() {
   const [keys, setKeys] = useState<KeysMap | null>(null);
   const [epKeys, setEpKeys] = useState<CustomEndpointKeys>({});
-  const [adding, setAdding] = useState<Set<ProviderId>>(new Set());
+  const [codexConnected, setCodexConnected] = useState(false);
+  const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
+  const [claudeCliDetected, setClaudeCliDetected] = useState(false);
+  const [anthropicUsesClaudeCli, setAnthropicUsesClaudeCli] = useState(true);
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -170,12 +174,23 @@ export function ModelsSection() {
   );
   const openrouterModelId = usePreferencesStore((s) => s.openrouterModelId);
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
-  const modelTiers = usePreferencesStore((s) => s.modelTiers);
-  const modelNotes = usePreferencesStore((s) => s.modelNotes);
+  const addedProviderIds = usePreferencesStore((s) => s.addedProviderIds);
+
+  const refreshKeys = useCallback(() => {
+    void getAllKeys().then(setKeys);
+    void getCodexAuth().then((auth) => setCodexConnected(!!auth));
+    void getPreferredAuthMethod("openai").then((m) =>
+      setOpenaiUsesLogin(m !== "apikey"),
+    );
+    void detectClaudeCli().then((path) => setClaudeCliDetected(!!path));
+    void getPreferredAuthMethod("anthropic", "apikey").then((m) =>
+      setAnthropicUsesClaudeCli(m !== "apikey"),
+    );
+  }, []);
 
   useEffect(() => {
-    void getAllKeys().then(setKeys);
-  }, []);
+    refreshKeys();
+  }, [refreshKeys]);
 
   useEffect(() => {
     void getAllCustomEndpointKeys(customEndpoints).then(setEpKeys);
@@ -307,8 +322,40 @@ export function ModelsSection() {
     }
   };
 
+  // The provider card only needs the key-vs-login switch when a person has
+  // both a pasted key AND a subscription connection for the same provider,
+  // otherwise there's nothing to choose between.
+  const authMethodSwitchFor = (
+    id: ProviderId,
+  ):
+    | { usingLogin: boolean; onChange: (usingLogin: boolean) => void }
+    | undefined => {
+    if (id === "openai" && codexConnected && keys?.[id] != null) {
+      return {
+        usingLogin: openaiUsesLogin,
+        onChange: (usingLogin) => {
+          setOpenaiUsesLogin(usingLogin);
+          void setPreferredAuthMethod("openai", usingLogin ? "oauth" : "apikey");
+        },
+      };
+    }
+    if (id === "anthropic" && claudeCliDetected && keys?.[id] != null) {
+      return {
+        usingLogin: anthropicUsesClaudeCli,
+        onChange: (usingLogin) => {
+          setAnthropicUsesClaudeCli(usingLogin);
+          void setPreferredAuthMethod("anthropic", usingLogin ? "oauth" : "apikey");
+        },
+      };
+    }
+    return undefined;
+  };
+
   const isConfigured = (id: ProviderId): boolean => {
     if (id === "openrouter") return !!keys?.[id] && !!openrouterModelId.trim();
+    if (id === "openai") return !!keys?.[id] || codexConnected;
+    if (id === "anthropic")
+      return !!keys?.[id] || (claudeCliDetected && anthropicUsesClaudeCli);
     if (!isLocalProvider(id)) return !!keys?.[id];
     const cfg = localConfig(id);
     if (!cfg) return false;
@@ -324,13 +371,16 @@ export function ModelsSection() {
   const configuredIds = new Set(
     PROVIDERS.filter((p) => isConfigured(p.id)).map((p) => p.id),
   );
-  const visibleIds = new Set<ProviderId>(configuredIds);
-  for (const id of adding) visibleIds.add(id);
+  // Deliberately independent of configuredIds: connecting a subscription
+  // (Codex, Claude CLI, or OpenRouter login) makes a provider usable for
+  // chat without adding its card here — only an explicit "Add provider"
+  // does that.
+  const addedIds = new Set<ProviderId>(addedProviderIds);
   const visibleProviders = PROVIDERS.filter(
-    (p) => p.id !== "openai-compatible" && visibleIds.has(p.id),
+    (p) => p.id !== "openai-compatible" && addedIds.has(p.id),
   );
   const addableProviders = PROVIDERS.filter(
-    (p) => p.id !== "openai-compatible" && !visibleIds.has(p.id),
+    (p) => p.id !== "openai-compatible" && !addedIds.has(p.id),
   );
 
   const refreshAllCatalogs = () => {
@@ -355,15 +405,13 @@ export function ModelsSection() {
     } else {
       void onClearKey(id);
     }
-    setAdding((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    void setAddedProviderIds(addedProviderIds.filter((x) => x !== id));
   };
 
   const addProvider = (id: ProviderId) => {
-    setAdding((prev) => new Set(prev).add(id));
+    if (!addedProviderIds.includes(id)) {
+      void setAddedProviderIds([...addedProviderIds, id]);
+    }
   };
 
   return (
@@ -380,24 +428,21 @@ export function ModelsSection() {
         customEndpoints={customEndpoints}
       />
 
-      <ModelTiersBlock
-        configuredIds={configuredIds}
-        keys={keys}
-        modelTiers={modelTiers}
-      />
-
-      <ModelNotesBlock
-        keys={keys}
-        modelTiers={modelTiers}
-        modelNotes={modelNotes}
-        defaultModel={defaultModel}
-      />
+      {/* Model notes: not pulling its weight right now, mostly showing
+          auto-picked models the person never configured. Disabled rather
+          than deleted, ModelNotesBlock/ModelNoteRow below still work if we
+          bring it back. */}
 
       <VoiceBlock keys={keys} />
 
-      <div className="flex flex-col gap-3">
+      <Tabs defaultValue="providers" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <Label>Providers</Label>
+          <TabsList>
+            <TabsTrigger value="providers">Providers</TabsTrigger>
+            <TabsTrigger value="subscription-login">
+              Subscription Login
+            </TabsTrigger>
+          </TabsList>
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
@@ -421,66 +466,79 @@ export function ModelsSection() {
           </div>
         </div>
 
-        {visibleProviders.length === 0 && customEndpoints.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 bg-card/40 px-4 py-8 text-center">
-            <p className="text-[12px] text-muted-foreground">
-              No providers connected yet.
-            </p>
-            <p className="mt-0.5 text-[10.5px] text-muted-foreground/70">
-              Click "Add provider" to connect a cloud or local model source.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {visibleProviders.map((p) =>
-              p.id === "openrouter" ? (
-                <LocalProviderCard
-                  key={p.id}
-                  provider={p}
-                  configured={configuredIds.has(p.id)}
-                  config={localConfig(p.id)!}
-                  meta={LOCAL_META[p.id]!}
-                  compatKey={keys[p.id]}
-                  onSaveKey={(v) => onSaveKey(p.id, v)}
-                  onClearKey={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
+        <TabsContent value="providers" className="flex flex-col gap-2">
+          {visibleProviders.length === 0 && customEndpoints.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/60 bg-card/40 px-4 py-8 text-center">
+              <p className="text-[12px] text-muted-foreground">
+                No providers connected yet.
+              </p>
+              <p className="mt-0.5 text-[10.5px] text-muted-foreground/70">
+                Click "Add provider" to connect a cloud or local model source.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {visibleProviders.map((p) =>
+                p.id === "openrouter" ? (
+                  <LocalProviderCard
+                    key={p.id}
+                    provider={p}
+                    configured={configuredIds.has(p.id)}
+                    config={localConfig(p.id)!}
+                    meta={LOCAL_META[p.id]!}
+                    compatKey={keys[p.id]}
+                    onSaveKey={(v) => onSaveKey(p.id, v)}
+                    onClearKey={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                ) : isLocalProvider(p.id) ? (
+                  <LocalProviderCard
+                    key={p.id}
+                    provider={p}
+                    configured={configuredIds.has(p.id)}
+                    config={localConfig(p.id)!}
+                    meta={LOCAL_META[p.id]!}
+                    onSaveKey={(v) => onSaveKey(p.id, v)}
+                    onClearKey={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                ) : (
+                  <ProviderKeyCard
+                    key={p.id}
+                    provider={p}
+                    currentKey={keys[p.id]}
+                    onSave={(v) => onSaveKey(p.id, v)}
+                    onClear={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                    authMethodSwitch={authMethodSwitchFor(p.id)}
+                  />
+                ),
+              )}
+              {customEndpoints.map((ep) => (
+                <CustomEndpointCard
+                  key={ep.id}
+                  endpoint={ep}
+                  endpointKey={epKeys[ep.id] ?? null}
+                  onSaveKey={(v) => onSaveEndpointKey(ep.id, v)}
+                  onClearKey={() => onClearEndpointKey(ep.id)}
+                  onUpdate={(patch) => updateCustomEndpoint(ep.id, patch)}
+                  onRemove={() => removeCustomEndpoint(ep.id)}
                 />
-              ) : isLocalProvider(p.id) ? (
-                <LocalProviderCard
-                  key={p.id}
-                  provider={p}
-                  configured={configuredIds.has(p.id)}
-                  config={localConfig(p.id)!}
-                  meta={LOCAL_META[p.id]!}
-                  onSaveKey={(v) => onSaveKey(p.id, v)}
-                  onClearKey={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
-                />
-              ) : (
-                <ProviderKeyCard
-                  key={p.id}
-                  provider={p}
-                  currentKey={keys[p.id]}
-                  onSave={(v) => onSaveKey(p.id, v)}
-                  onClear={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
-                />
-              ),
-            )}
-            {customEndpoints.map((ep) => (
-              <CustomEndpointCard
-                key={ep.id}
-                endpoint={ep}
-                endpointKey={epKeys[ep.id] ?? null}
-                onSaveKey={(v) => onSaveEndpointKey(ep.id, v)}
-                onClearKey={() => onClearEndpointKey(ep.id)}
-                onUpdate={(patch) => updateCustomEndpoint(ep.id, patch)}
-                onRemove={() => removeCustomEndpoint(ep.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="subscription-login">
+          <SubscriptionLoginTab
+            keys={keys}
+            codexConnected={codexConnected}
+            claudeCliDetected={claudeCliDetected}
+            claudeCliEnabled={anthropicUsesClaudeCli}
+            onLoggedIn={refreshKeys}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -693,127 +751,17 @@ function DefaultModelPicker({
   );
 }
 
+// Model notes: disabled, wasn't pulling its weight — mostly surfaced
+// auto-picked models the person never configured. Kept here, not deleted,
+// in case it's worth reviving with a tighter "actually configured" filter.
+// To restore: re-add the `modelTiers`/`modelNotes` selectors near the top
+// of ModelsSection and the <ModelNotesBlock .../> call in its JSX.
+/*
 const TIER_LABELS: Record<ModelTier, string> = {
   light: "Light",
   standard: "Standard",
   heavy: "Heavy",
 };
-
-function ModelTiersBlock({
-  configuredIds,
-  keys,
-  modelTiers,
-}: {
-  configuredIds: Set<ProviderId>;
-  keys: KeysMap;
-  modelTiers: Partial<Record<ModelTier, string>>;
-}) {
-  const liveModels = useModelCatalogStore((s) => s.models);
-  const available = availableModelsForTiers(keys);
-  const hasAny = configuredIds.size > 0;
-
-  const setTier = async (tier: ModelTier, modelId: string | null) => {
-    const next = { ...modelTiers };
-    if (modelId) next[tier] = modelId;
-    else delete next[tier];
-    await setModelTiers(next);
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Label>Model tiers</Label>
-      <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
-        <p className="text-[11px] text-muted-foreground">
-          Powers Auto mode and subagent delegation. Unset tiers pick a
-          configured model automatically by capability.
-        </p>
-        {(Object.keys(TIER_LABELS) as ModelTier[]).map((tier) => {
-          const resolved = resolveTierModel(tier, available, modelTiers);
-          return (
-            <FieldRow key={tier} label={TIER_LABELS[tier]}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={!hasAny}
-                    className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
-                  >
-                    {resolved ? (
-                      <span className="flex items-center gap-2 truncate">
-                        <ProviderIcon provider={resolved.provider} size={13} />
-                        <span className="truncate">{resolved.label}</span>
-                        {!modelTiers[tier] && (
-                          <span className="text-muted-foreground">· auto</span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="truncate text-muted-foreground">
-                        Add a provider to assign a model
-                      </span>
-                    )}
-                    <HugeiconsIcon
-                      icon={ArrowDown01Icon}
-                      size={11}
-                      strokeWidth={2}
-                      className="opacity-70"
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  side="bottom"
-                  sideOffset={6}
-                  collisionPadding={12}
-                  className="min-w-70 p-1"
-                >
-                  <div className="max-h-72 overflow-y-auto overscroll-contain pr-1">
-                    <DropdownMenuItem
-                      onSelect={() => void setTier(tier, null)}
-                      className="text-[12px] text-muted-foreground"
-                    >
-                      Auto (recommended)
-                    </DropdownMenuItem>
-                    {PROVIDERS.filter((p) => configuredIds.has(p.id)).map(
-                      (p) => {
-                        const models = effectiveModelsFor(liveModels, p.id);
-                        if (models.length === 0) return null;
-                        return (
-                          <div key={p.id} className="px-1 pt-1.5 first:pt-1">
-                            <div className="mb-0.5 flex items-center gap-1.5 px-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                              <ProviderIcon provider={p.id} size={11} />
-                              <span>{p.label}</span>
-                            </div>
-                            {models.map((mod) => (
-                              <DropdownMenuItem
-                                key={mod.id}
-                                onSelect={() => void setTier(tier, mod.id)}
-                                className={cn(
-                                  "flex items-start gap-2 text-[12px]",
-                                  mod.id === modelTiers[tier] && "bg-accent/50",
-                                )}
-                              >
-                                <span className="flex flex-1 flex-col">
-                                  <span>{mod.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {mod.description}
-                                  </span>
-                                </span>
-                              </DropdownMenuItem>
-                            ))}
-                          </div>
-                        );
-                      },
-                    )}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </FieldRow>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 const MODEL_NOTES_SAVE_DEBOUNCE_MS = 500;
 
@@ -851,8 +799,8 @@ function ModelNotesBlock({
       <Label>Model notes</Label>
       <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
         <p className="text-[11px] text-muted-foreground">
-          What you've learned about each model — fed back into that model's
-          own system prompt. E.g. "loses track past ~15 tool calls, keep
+          What you've learned about each model — fed back into that model's own
+          system prompt. E.g. "loses track past ~15 tool calls, keep
           instructions to it short" or "great at Rust, avoid for CSS."
         </p>
         {rows.map((m) => (
@@ -912,6 +860,7 @@ function ModelNoteRow({
     </div>
   );
 }
+*/
 
 function AutocompleteRow({
   keys,
