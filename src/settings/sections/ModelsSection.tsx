@@ -9,28 +9,37 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import {
-  DEFAULT_MODEL_ID,
-  MODELS,
-  PROVIDERS,
-  STT_PROVIDER_LABELS,
+  type CustomEndpoint,
   compatModelIdForEndpoint,
+  DEFAULT_MODEL_ID,
   getAutocompleteEligibleModels,
   getCompatModelInfo,
   getModel,
   getProvider,
   isCompatModelId,
   isKnownModelId,
-  providerNeedsKey,
-  type CustomEndpoint,
+  MODELS,
   type ModelId,
   type ModelTier,
+  PROVIDERS,
   type ProviderId,
   type ProviderInfo,
+  providerNeedsKey,
+  STT_PROVIDER_LABELS,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
+import {
+  type CustomEndpointKeys,
+  clearCustomEndpointKey,
+  clearKey,
+  getAllCustomEndpointKeys,
+  getAllKeys,
+  setCustomEndpointKey,
+  setKey,
+} from "@/features/ai-companion/ai/lib/keyring";
 import {
   CATALOG_PROVIDERS,
   effectiveModelsFor,
@@ -43,15 +52,6 @@ import {
   availableModelsForTiers,
   resolveTierModel,
 } from "@/features/ai-companion/ai/lib/modelTiers";
-import {
-  clearKey,
-  clearCustomEndpointKey,
-  getAllKeys,
-  getAllCustomEndpointKeys,
-  setKey,
-  setCustomEndpointKey,
-  type CustomEndpointKeys,
-} from "@/features/ai-companion/ai/lib/keyring";
 import { useAiChatStore } from "@/features/ai-companion/ai/store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import {
@@ -62,12 +62,13 @@ import {
   setCustomEndpoints,
   setDefaultModel,
   setFavoriteModelIds,
-  setModelTiers,
-  setModelNotes,
+  setGroqSttModel,
   setLmstudioBaseURL,
   setLmstudioModelId,
   setMlxBaseURL,
   setMlxModelId,
+  setModelNotes,
+  setModelTiers,
   setOllamaBaseURL,
   setOllamaModelId,
   setOpenaiCompatibleBaseURL,
@@ -75,9 +76,9 @@ import {
   setOpenaiCompatibleModelId,
   setOpenrouterModelId,
   setRecentModelIds,
-  setGroqSttModel,
   setSttProvider,
 } from "@/features/layout-chrome/settings/store";
+import { cn } from "@/lib/utils";
 import {
   Add01Icon,
   ArrowDown01Icon,
@@ -95,6 +96,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ProviderIcon } from "../components/ProviderIcon";
 import { ProviderKeyCard } from "../components/ProviderKeyCard";
 import { SectionHeader } from "../components/SectionHeader";
+import { SubscriptionLoginTab } from "../components/SubscriptionLoginTab";
 
 type KeysMap = Record<ProviderId, string | null>;
 
@@ -172,6 +174,10 @@ export function ModelsSection() {
   const customEndpoints = usePreferencesStore((s) => s.customEndpoints);
   const modelTiers = usePreferencesStore((s) => s.modelTiers);
   const modelNotes = usePreferencesStore((s) => s.modelNotes);
+
+  const refreshKeys = () => {
+    void getAllKeys().then(setKeys);
+  };
 
   useEffect(() => {
     void getAllKeys().then(setKeys);
@@ -395,9 +401,14 @@ export function ModelsSection() {
 
       <VoiceBlock keys={keys} />
 
-      <div className="flex flex-col gap-3">
+      <Tabs defaultValue="providers" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <Label>Providers</Label>
+          <TabsList>
+            <TabsTrigger value="providers">Providers</TabsTrigger>
+            <TabsTrigger value="subscription-login">
+              Subscription Login
+            </TabsTrigger>
+          </TabsList>
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
@@ -421,66 +432,72 @@ export function ModelsSection() {
           </div>
         </div>
 
-        {visibleProviders.length === 0 && customEndpoints.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 bg-card/40 px-4 py-8 text-center">
-            <p className="text-[12px] text-muted-foreground">
-              No providers connected yet.
-            </p>
-            <p className="mt-0.5 text-[10.5px] text-muted-foreground/70">
-              Click "Add provider" to connect a cloud or local model source.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {visibleProviders.map((p) =>
-              p.id === "openrouter" ? (
-                <LocalProviderCard
-                  key={p.id}
-                  provider={p}
-                  configured={configuredIds.has(p.id)}
-                  config={localConfig(p.id)!}
-                  meta={LOCAL_META[p.id]!}
-                  compatKey={keys[p.id]}
-                  onSaveKey={(v) => onSaveKey(p.id, v)}
-                  onClearKey={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
+        <TabsContent value="providers" className="flex flex-col gap-2">
+          {visibleProviders.length === 0 && customEndpoints.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/60 bg-card/40 px-4 py-8 text-center">
+              <p className="text-[12px] text-muted-foreground">
+                No providers connected yet.
+              </p>
+              <p className="mt-0.5 text-[10.5px] text-muted-foreground/70">
+                Click "Add provider" to connect a cloud or local model source.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {visibleProviders.map((p) =>
+                p.id === "openrouter" ? (
+                  <LocalProviderCard
+                    key={p.id}
+                    provider={p}
+                    configured={configuredIds.has(p.id)}
+                    config={localConfig(p.id)!}
+                    meta={LOCAL_META[p.id]!}
+                    compatKey={keys[p.id]}
+                    onSaveKey={(v) => onSaveKey(p.id, v)}
+                    onClearKey={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                ) : isLocalProvider(p.id) ? (
+                  <LocalProviderCard
+                    key={p.id}
+                    provider={p}
+                    configured={configuredIds.has(p.id)}
+                    config={localConfig(p.id)!}
+                    meta={LOCAL_META[p.id]!}
+                    onSaveKey={(v) => onSaveKey(p.id, v)}
+                    onClearKey={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                ) : (
+                  <ProviderKeyCard
+                    key={p.id}
+                    provider={p}
+                    currentKey={keys[p.id]}
+                    onSave={(v) => onSaveKey(p.id, v)}
+                    onClear={() => onClearKey(p.id)}
+                    onRemove={() => removeProvider(p.id)}
+                  />
+                ),
+              )}
+              {customEndpoints.map((ep) => (
+                <CustomEndpointCard
+                  key={ep.id}
+                  endpoint={ep}
+                  endpointKey={epKeys[ep.id] ?? null}
+                  onSaveKey={(v) => onSaveEndpointKey(ep.id, v)}
+                  onClearKey={() => onClearEndpointKey(ep.id)}
+                  onUpdate={(patch) => updateCustomEndpoint(ep.id, patch)}
+                  onRemove={() => removeCustomEndpoint(ep.id)}
                 />
-              ) : isLocalProvider(p.id) ? (
-                <LocalProviderCard
-                  key={p.id}
-                  provider={p}
-                  configured={configuredIds.has(p.id)}
-                  config={localConfig(p.id)!}
-                  meta={LOCAL_META[p.id]!}
-                  onSaveKey={(v) => onSaveKey(p.id, v)}
-                  onClearKey={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
-                />
-              ) : (
-                <ProviderKeyCard
-                  key={p.id}
-                  provider={p}
-                  currentKey={keys[p.id]}
-                  onSave={(v) => onSaveKey(p.id, v)}
-                  onClear={() => onClearKey(p.id)}
-                  onRemove={() => removeProvider(p.id)}
-                />
-              ),
-            )}
-            {customEndpoints.map((ep) => (
-              <CustomEndpointCard
-                key={ep.id}
-                endpoint={ep}
-                endpointKey={epKeys[ep.id] ?? null}
-                onSaveKey={(v) => onSaveEndpointKey(ep.id, v)}
-                onClearKey={() => onClearEndpointKey(ep.id)}
-                onUpdate={(patch) => updateCustomEndpoint(ep.id, patch)}
-                onRemove={() => removeCustomEndpoint(ep.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="subscription-login">
+          <SubscriptionLoginTab keys={keys} onLoggedIn={refreshKeys} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -851,8 +868,8 @@ function ModelNotesBlock({
       <Label>Model notes</Label>
       <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-card/60 px-3 py-2.5">
         <p className="text-[11px] text-muted-foreground">
-          What you've learned about each model — fed back into that model's
-          own system prompt. E.g. "loses track past ~15 tool calls, keep
+          What you've learned about each model — fed back into that model's own
+          system prompt. E.g. "loses track past ~15 tool calls, keep
           instructions to it short" or "great at Rust, avoid for CSS."
         </p>
         {rows.map((m) => (
