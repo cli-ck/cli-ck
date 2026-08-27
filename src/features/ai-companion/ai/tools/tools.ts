@@ -20,9 +20,10 @@ export { resolvePath, type ToolContext } from "./context";
  *    auto-execute, but go through the security guard which refuses obvious
  *    secret paths (.env*, .ssh/, credentials, etc.).
  *  - Mutating tools (`write_file`, `edit`, `multi_edit`, `create_directory`,
- *    `run_command`, `browser_execute`) require explicit user approval — the
- *    AI SDK pauses on tool-call and surfaces a `tool-approval-request` part
- *    that the UI renders as a confirmation card.
+ *    `run_command`, `browser_execute`, `browser_automate`) require explicit
+ *    user approval — the AI SDK pauses on tool-call and surfaces a
+ *    `tool-approval-request` part that the UI renders as a confirmation
+ *    card.
  *  - `edit` / `multi_edit` additionally enforce a read-before-edit invariant
  *    (the model must have called read_file on the path earlier in the
  *    session).

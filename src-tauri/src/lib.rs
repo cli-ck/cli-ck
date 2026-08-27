@@ -1,8 +1,8 @@
 pub mod modules;
 
 use modules::{
-    agent, claude_cli, code_intel, fs, git, history, lsp, net, oauth, pty, secrets, shell,
-    workspace,
+    agent, browser_automation, claude_cli, code_intel, fs, git, history, lsp, net, oauth, pty,
+    secrets, shell, workspace,
 };
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -13,7 +13,7 @@ use tauri_plugin_window_state::StateFlags;
 /// Injected into every frame of the main window (including the preview
 /// iframe) — click-to-inspect plus browser_execute's script/locator
 /// primitives. See the script's own header comment for the full design.
-const PREVIEW_BRIDGE_JS: &str = include_str!("scripts/preview_bridge.js");
+pub(crate) const PREVIEW_BRIDGE_JS: &str = include_str!("scripts/preview_bridge.js");
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
 #[derive(Default)]
@@ -245,7 +245,11 @@ pub fn run() {
         .manage(LaunchDir(Mutex::new(cli_dir)))
         .manage(lsp::LspState::default())
         .manage(code_intel::CodeIntelState::default())
+        .manage(browser_automation::BrowserAutomationState::default())
         .invoke_handler(tauri::generate_handler![
+            browser_automation::browser_automation_run,
+            browser_automation::browser_automation_status,
+            browser_automation::browser_automation_stop,
             lsp::lsp_detect,
             lsp::lsp_host_pid,
             lsp::lsp_resolve_root,
