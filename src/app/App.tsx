@@ -32,7 +32,10 @@ import {
   useEditorFileSync,
   type EditorPaneHandle,
 } from "@/features/code-pane/editor";
-import { WorkspaceFileExplorer, type FileExplorerHandle } from "@/features/workspace-core/explorer";
+import {
+  WorkspaceFileExplorer,
+  type FileExplorerHandle,
+} from "@/features/workspace-core/explorer";
 import type { GitHistorySearchHandle } from "@/features/vcs-git/git-history";
 import {
   ChromeHeader,
@@ -84,9 +87,15 @@ import {
   useSpacesBoot,
 } from "@/features/workspace-core/spaces";
 import { DEFAULT_SPACE_ID } from "@/features/workspace-core/tabs/lib/useWorkspaceTabs";
-import { ChromeThemeProvider, useThemeFileEditing } from "@/features/layout-chrome/theme";
+import {
+  ChromeThemeProvider,
+  useThemeFileEditing,
+} from "@/features/layout-chrome/theme";
 import { ChromeUpdaterDialog } from "@/features/layout-chrome/updater";
-import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/features/shell-pty/workspace";
+import {
+  useWorkspaceEnvStore,
+  type WorkspaceEnv,
+} from "@/features/shell-pty/workspace";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CloseDialogs } from "./components/CloseDialogs";
@@ -234,7 +243,9 @@ export default function App() {
     const prev = prevSpaceRef.current;
     prevSpaceRef.current = activeSpaceId;
     if (prev === null || prev === activeSpaceId) return;
-    const meta = useSpaces.getState().spaces.find((s) => s.id === activeSpaceId);
+    const meta = useSpaces
+      .getState()
+      .spaces.find((s) => s.id === activeSpaceId);
     if (meta) void adoptWorkspaceEnv(meta.env);
     const inSpace = tabsRef.current.filter((t) => t.spaceId === activeSpaceId);
     if (inSpace.length === 0) return;
@@ -376,7 +387,10 @@ export default function App() {
   // the Ctrl+Tab quick switcher so it cycles by recency, not strip order.
   const mruRef = useRef<number[]>([activeId]);
   useEffect(() => {
-    mruRef.current = [activeId, ...mruRef.current.filter((id) => id !== activeId)];
+    mruRef.current = [
+      activeId,
+      ...mruRef.current.filter((id) => id !== activeId),
+    ];
   }, [activeId]);
   useEffect(() => {
     const live = new Set(tabs.map((t) => t.id));
@@ -605,7 +619,6 @@ export default function App() {
     },
     [newPreviewTab],
   );
-
 
   const splitActivePaneInActiveTab = useCallback(
     (dir: "row" | "col") => {
@@ -916,8 +929,9 @@ export default function App() {
 
   const handleNewTabInSpace = useCallback(
     (spaceId: string) => {
-      const root = useSpaces.getState().spaces.find((s) => s.id === spaceId)
-        ?.root;
+      const root = useSpaces
+        .getState()
+        .spaces.find((s) => s.id === spaceId)?.root;
       newTabInSpace(spaceId, root ?? undefined);
     },
     [newTabInSpace],
@@ -1039,6 +1053,7 @@ export default function App() {
     openPreviewTab,
     newAgentTab,
     terminalRefs,
+    previewRefs,
   });
 
   const shell = (
@@ -1090,7 +1105,10 @@ export default function App() {
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
-                  <div key={sidebarView} className="min-h-0 flex-1 cli-ck-panel-in">
+                  <div
+                    key={sidebarView}
+                    className="min-h-0 flex-1 cli-ck-panel-in"
+                  >
                     {sidebarView === "explorer" ? (
                       <WorkspaceFileExplorer
                         ref={explorerRef}

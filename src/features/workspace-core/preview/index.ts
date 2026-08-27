@@ -1,2 +1,5 @@
 export { WorkspacePreviewStack } from "./WorkspacePreviewStack";
-export type { PreviewPaneHandle } from "./WorkspacePreviewPane";
+export type {
+  InspectedElementFacts,
+  PreviewPaneHandle,
+} from "./WorkspacePreviewPane";

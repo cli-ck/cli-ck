@@ -1,7 +1,12 @@
-import { Alert02Icon, Globe02Icon } from "@hugeicons/core-free-icons";
+import {
+  Alert02Icon,
+  Cursor02Icon,
+  Globe02Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -12,10 +17,36 @@ import {
   type PreviewAddressBarHandle,
 } from "./WorkspacePreviewAddressBar";
 
+/** Must match the `MARKER` constant in
+ *  `src-tauri/src/scripts/inspect_bridge.js` — the script running inside
+ *  the iframe and this component are two independent runtimes with no
+ *  shared import, so the string has to be kept in sync by hand. */
+const CLI_CK_INSPECT_MARKER = "__cli_ck_inspect__";
+
+/** Facts about one clicked preview element, reported by the injected bridge
+ *  script (see inspect_bridge.js). Deliberately a fixed, budget-capped
+ *  shape — not a raw DOM dump. */
+export type InspectedElementFacts = {
+  selector: string;
+  tag: string;
+  text: string;
+  rect: { x: number; y: number; width: number; height: number };
+  style: Record<string, string>;
+  aria: Record<string, string>;
+  sourcePointer: { fileName: string; lineNumber: number | null } | null;
+};
+
 export type PreviewPaneHandle = {
   reload: () => void;
   focusAddressBar: () => void;
   getUrl: () => string;
+  /** Arms click-to-inspect in the preview iframe and resolves with the
+   *  clicked element's facts, or `null` if the user doesn't click anything
+   *  within `timeoutMs` (default 60s) or there's no page loaded to inspect. */
+  inspectElement: (timeoutMs?: number) => Promise<InspectedElementFacts | null>;
+  /** Disarms click-to-inspect early (e.g. a Cancel button) and resolves any
+   *  in-flight `inspectElement()` call with `null`. */
+  cancelInspect: () => void;
 };
 
 type Props = {
@@ -27,6 +58,7 @@ type Props = {
 // Tear the iframe down after this much invisibility — a background dev
 // server page can hold hundreds of MB inside the WebView.
 const SUSPEND_AFTER_MS = 30_000;
+const DEFAULT_INSPECT_TIMEOUT_MS = 60_000;
 
 export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
   function WorkspacePreviewPane({ url, visible, onUrlChange }, ref) {
@@ -35,7 +67,13 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
     // contentWindow.location.reload() throws on cross-origin frames).
     const [nonce, setNonce] = useState(0);
     const [loaded, setLoaded] = useState(visible);
+    const [inspecting, setInspecting] = useState(false);
     const addressRef = useRef<PreviewAddressBarHandle>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const pendingInspectRef = useRef<{
+      resolve: (facts: InspectedElementFacts | null) => void;
+      timer: ReturnType<typeof setTimeout>;
+    } | null>(null);
 
     useEffect(() => {
       if (visible) {
@@ -46,6 +84,60 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
       return () => clearTimeout(t);
     }, [visible]);
 
+    const settleInspect = useCallback((facts: InspectedElementFacts | null) => {
+      const pending = pendingInspectRef.current;
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      pendingInspectRef.current = null;
+      setInspecting(false);
+      pending.resolve(facts);
+    }, []);
+
+    useEffect(() => {
+      function onMessage(event: MessageEvent) {
+        if (!pendingInspectRef.current) return;
+        if (event.source !== iframeRef.current?.contentWindow) return;
+        const data = event.data as {
+          source?: string;
+          type?: string;
+          [k: string]: unknown;
+        } | null;
+        if (
+          !data ||
+          data.source !== CLI_CK_INSPECT_MARKER ||
+          data.type !== "result"
+        ) {
+          return;
+        }
+        settleInspect({
+          selector: String(data.selector ?? ""),
+          tag: String(data.tag ?? ""),
+          text: String(data.text ?? ""),
+          rect: data.rect as InspectedElementFacts["rect"],
+          style: data.style as Record<string, string>,
+          aria: data.aria as Record<string, string>,
+          sourcePointer:
+            (data.source_pointer as InspectedElementFacts["sourcePointer"]) ??
+            null,
+        });
+      }
+      window.addEventListener("message", onMessage);
+      return () => window.removeEventListener("message", onMessage);
+    }, [settleInspect]);
+
+    // Whenever the iframe element itself unmounts — a reload/nonce bump, a
+    // URL change, or suspending into SuspendedState — its JS context (and
+    // any armed listener inside it) is gone. An in-flight inspect can never
+    // resolve after that, so fail it immediately instead of leaving it
+    // hanging.
+    const setIframeEl = useCallback(
+      (el: HTMLIFrameElement | null) => {
+        iframeRef.current = el;
+        if (!el) settleInspect(null);
+      },
+      [settleInspect],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -55,8 +147,31 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
         },
         focusAddressBar: () => addressRef.current?.focus(),
         getUrl: () => url,
+        inspectElement: (timeoutMs = DEFAULT_INSPECT_TIMEOUT_MS) =>
+          new Promise<InspectedElementFacts | null>((resolve) => {
+            const win = iframeRef.current?.contentWindow;
+            if (!win) {
+              resolve(null);
+              return;
+            }
+            settleInspect(null); // cancel any prior in-flight request first
+            const timer = setTimeout(() => settleInspect(null), timeoutMs);
+            pendingInspectRef.current = { resolve, timer };
+            setInspecting(true);
+            win.postMessage(
+              { source: CLI_CK_INSPECT_MARKER, type: "start" },
+              "*",
+            );
+          }),
+        cancelInspect: () => {
+          iframeRef.current?.contentWindow?.postMessage(
+            { source: CLI_CK_INSPECT_MARKER, type: "stop" },
+            "*",
+          );
+          settleInspect(null);
+        },
       }),
-      [url],
+      [url, settleInspect],
     );
 
     const showXfoHint = url ? !isLocalUrl(url) : false;
@@ -96,9 +211,29 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
               : "relative min-h-0 flex-1 bg-background"
           }
         >
+          {inspecting ? (
+            <div className="absolute inset-x-0 top-0 z-10 flex h-8 items-center justify-center gap-2 border-b border-border/60 bg-foreground/90 px-3 text-[11px] text-background">
+              <HugeiconsIcon icon={Cursor02Icon} size={13} strokeWidth={1.75} />
+              <span>Click an element in the preview to inspect it</span>
+              <button
+                type="button"
+                onClick={() => {
+                  iframeRef.current?.contentWindow?.postMessage(
+                    { source: CLI_CK_INSPECT_MARKER, type: "stop" },
+                    "*",
+                  );
+                  settleInspect(null);
+                }}
+                className="ml-1 rounded border border-background/30 px-1.5 py-0.5 hover:bg-background/10"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
           {url ? (
             loaded ? (
               <iframe
+                ref={setIframeEl}
                 key={`${url}#${nonce}`}
                 src={url}
                 title="Preview"
@@ -171,8 +306,8 @@ function EmptyState() {
             Ports
           </span>{" "}
           dropdown to jump straight to your running dev server. Public sites
-          often block embedding — open them in your browser via the link icon
-          if you see a blank page.
+          often block embedding — open them in your browser via the link icon if
+          you see a blank page.
         </p>
       </div>
     </div>

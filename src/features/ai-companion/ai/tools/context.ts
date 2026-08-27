@@ -1,3 +1,5 @@
+import type { InspectedElementFacts } from "@/features/workspace-core/preview";
+
 export type ToolContext = {
   /** Active terminal tab cwd, used to resolve relative paths. Null = home. */
   getCwd: () => string | null;
@@ -13,6 +15,13 @@ export type ToolContext = {
   injectIntoActivePty: (text: string) => boolean;
   /** Open a new preview tab (in-app iframe) at the given URL. */
   openPreview: (url: string) => boolean;
+  /**
+   * Arms click-to-inspect on the active (or most-recently-open) preview
+   * tab and waits for the user to click an element, returning structured
+   * facts about it. Resolves `null` if there's no preview tab open, or the
+   * user doesn't click anything before the tool's own timeout.
+   */
+  requestElementInspection: () => Promise<InspectedElementFacts | null>;
   /** Spawn a Claude Code agent in a new terminal tab, bound to this session. */
   spawnAgent: (prompt: string) => { tabId: number; leafId: number } | null;
   /** Read the terminal scrollback tail of a managed agent's leaf. */

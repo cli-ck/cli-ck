@@ -13,6 +13,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "cli-ck",
         "width": 1000,
         "height": 700,

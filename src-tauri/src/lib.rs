@@ -10,6 +10,11 @@ use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri::{PhysicalPosition, WindowEvent};
 use tauri_plugin_window_state::StateFlags;
 
+/// Injected into every frame of the main window (including the preview
+/// iframe) — see the script's own header comment for what it does and why
+/// it's scoped this narrowly.
+const INSPECT_BRIDGE_JS: &str = include_str!("scripts/inspect_bridge.js");
+
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
 #[derive(Default)]
 struct LaunchDir(Mutex<Option<String>>);
@@ -185,12 +190,28 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
-        .setup(|_app| {
+        .setup(|app| {
+            // tauri.conf.json declares "main" with create: false so we can
+            // build it here ourselves with an extra option (init script for
+            // every frame) that isn't expressible in JSON config — otherwise
+            // identical to the declarative window Tauri would have built.
+            let main_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "main")
+                .cloned()
+                .expect("main window must be declared in tauri.conf.json");
+            WebviewWindowBuilder::from_config(app, &main_config)?
+                .initialization_script_for_all_frames(INSPECT_BRIDGE_JS)
+                .build()?;
+
             // macOS skips parent() for the settings window, so tie its lifecycle
             // to the main window here instead. Other platforms keep parent().
             #[cfg(target_os = "macos")]
-            if let Some(main) = _app.get_webview_window("main") {
-                let handle = _app.handle().clone();
+            if let Some(main) = app.get_webview_window("main") {
+                let handle = app.handle().clone();
                 main.on_window_event(move |event| {
                     if matches!(
                         event,
