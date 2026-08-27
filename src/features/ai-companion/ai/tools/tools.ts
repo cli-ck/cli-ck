@@ -1,6 +1,7 @@
 import { buildManagedAgentTools } from "./agent";
 import { buildEditTools } from "./edit";
 import { buildFsTools } from "./fs";
+import { buildInspectTools } from "./inspect";
 import { buildSearchTools } from "./search";
 import { buildShellTools } from "./shell";
 import { buildSubagentTools } from "./subagent";
@@ -37,6 +38,7 @@ export function buildTools(ctx: import("./context").ToolContext) {
     ...buildShellTools(ctx),
     ...buildSubagentTools(ctx),
     ...buildTerminalTools(ctx),
+    ...buildInspectTools(ctx),
     ...buildTodoTools(ctx),
     ...buildManagedAgentTools(ctx),
     ...buildWorkerTools(ctx),

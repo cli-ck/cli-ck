@@ -69,6 +69,7 @@ The themes below frame every scope decision.
 - [x] Tools with approval flow (file read / write / edit, bash, search, plan)
 - [x] Workspace file picker
 - [x] Auto-compact for long context
+- [x] Click-to-inspect preview elements (`inspect_ui_element`): structured selector/style/ARIA/source-pointer facts instead of a screenshot, inspired by a comparison against stablyai/orca's Design Mode
 
 ### Web Preview
 

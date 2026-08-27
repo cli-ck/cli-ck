@@ -7,6 +7,7 @@ import {
   whenSessionReady,
   writeToSession,
 } from "@/features/shell-pty/terminal";
+import type { PreviewPaneHandle } from "@/features/workspace-core/preview";
 import type { Tab } from "@/features/workspace-core/tabs";
 import type { Live } from "../store/aiChatStore";
 import { redactSensitive } from "./redact";
@@ -40,6 +41,7 @@ type Params = {
     title: string,
   ) => { tabId: number; leafId: number };
   terminalRefs: RefObject<Map<number, TerminalPaneHandle>>;
+  previewRefs: RefObject<Map<number, PreviewPaneHandle>>;
 };
 
 /**
@@ -52,7 +54,7 @@ type Params = {
  * arrive from terminal OSC on shell output and would otherwise churn constantly.
  */
 export function useAiLiveBridge(params: Params) {
-  const { setLive, terminalRefs } = params;
+  const { setLive, terminalRefs, previewRefs } = params;
   const ref = useRef(params);
   ref.current = params;
 
@@ -114,6 +116,23 @@ export function useAiLiveBridge(params: Params) {
         ref.current.openPreviewTab(url);
         return true;
       },
+      requestElementInspection: async () => {
+        const { activeId, tabs } = ref.current;
+        const active = tabs.find((t) => t.id === activeId);
+        let targetId = active?.kind === "preview" ? active.id : null;
+        if (targetId == null) {
+          for (let i = tabs.length - 1; i >= 0; i--) {
+            if (tabs[i].kind === "preview") {
+              targetId = tabs[i].id;
+              break;
+            }
+          }
+        }
+        if (targetId == null) return null;
+        const handle = previewRefs.current.get(targetId);
+        if (!handle) return null;
+        return handle.inspectElement();
+      },
       spawnManagedAgent: (prompt: string, sessionId: string) => {
         const trimmed = prompt.trim();
         if (!trimmed) return null;
@@ -163,5 +182,5 @@ export function useAiLiveBridge(params: Params) {
         return buf ? redactSensitive(buf) : null;
       },
     });
-  }, [setLive, terminalRefs]);
+  }, [setLive, terminalRefs, previewRefs]);
 }

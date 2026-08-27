@@ -17,10 +17,13 @@ import type { TaskKind } from "./taskClassifier";
 
 /** Tools a disposable worker must never see: spawning another worker/team or
  *  an external CLI agent recursively, or reaching into the parent session's
- *  managed-agent state (worker sessions are their own throwaway id) — plus
+ *  managed-agent state (worker sessions are their own throwaway id); plus
  *  todo_write, which persists to disk keyed by session id (see lib/todos.ts)
  *  and would otherwise leave an orphaned `todos:worker:<uuid>` entry behind
- *  forever since a worker session is never explicitly deleted. */
+ *  forever since a worker session is never explicitly deleted; plus
+ *  inspect_ui_element, which waits on a live user click in the UI — a
+ *  worker runs unattended, so it would just burn its own timeout budget
+ *  waiting for a click that never comes. */
 const WORKER_BLOCKED_TOOLS = new Set([
   "run_subagent",
   "spawn_worker",
@@ -29,6 +32,7 @@ const WORKER_BLOCKED_TOOLS = new Set([
   "send_to_agent",
   "read_agent_output",
   "todo_write",
+  "inspect_ui_element",
 ]);
 
 export type WorkerRole = "planner" | "builder" | "reviewer" | "step";
@@ -121,12 +125,8 @@ export function createWorkerChat(
     : undefined;
   const modelId =
     overrideHit?.id ??
-    resolveTierModel(
-      tier,
-      available,
-      deps.getModelTiers(),
-      undefined,
-      (id) => isHighFriction(id, KIND_FOR_ROLE[role]),
+    resolveTierModel(tier, available, deps.getModelTiers(), undefined, (id) =>
+      isHighFriction(id, KIND_FOR_ROLE[role]),
     )?.id ??
     DEFAULT_MODEL_ID;
 
@@ -138,6 +138,7 @@ export function createWorkerChat(
     isActiveTerminalPrivate: deps.isActiveTerminalPrivate,
     injectIntoActivePty: deps.injectIntoActivePty,
     openPreview: deps.openPreview,
+    requestElementInspection: async () => null,
     spawnAgent: () => null,
     readAgentOutput: () => null,
     readCache,
@@ -176,7 +177,10 @@ export function createWorkerChat(
 
 function hasPendingApproval(messages: readonly UIMessage[]): boolean {
   for (const m of messages) {
-    for (const p of m.parts as ReadonlyArray<{ type: string; state?: string }>) {
+    for (const p of m.parts as ReadonlyArray<{
+      type: string;
+      state?: string;
+    }>) {
       if (p.type.startsWith("tool-") && p.state === "approval-requested") {
         return true;
       }
@@ -259,7 +263,8 @@ export async function runWorkerToCompletion(
   return {
     summary: timedOut
       ? `(worker timed out after ${Math.round(WORKER_TIMEOUT_MS / 60_000)} minutes — likely stuck awaiting approval; stopped)`
-      : summary || (chat.status === "error" ? "(worker errored)" : "(no output)"),
+      : summary ||
+        (chat.status === "error" ? "(worker errored)" : "(no output)"),
     toolCalls,
     timedOut,
   };

@@ -135,6 +135,7 @@ try {
     isActiveTerminalPrivate: () => false,
     injectIntoActivePty: () => false,
     openPreview: () => false,
+    requestElementInspection: async () => null,
     spawnAgent: () => null,
     readAgentOutput: () => null,
     readCache: new Map(),
