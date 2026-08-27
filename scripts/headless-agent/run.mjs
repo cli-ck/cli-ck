@@ -136,6 +136,7 @@ try {
     injectIntoActivePty: () => false,
     openPreview: () => false,
     requestElementInspection: async () => null,
+    runInPreview: async () => null,
     spawnAgent: () => null,
     readAgentOutput: () => null,
     readCache: new Map(),

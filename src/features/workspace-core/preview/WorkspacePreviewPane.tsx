@@ -18,13 +18,15 @@ import {
 } from "./WorkspacePreviewAddressBar";
 
 /** Must match the `MARKER` constant in
- *  `src-tauri/src/scripts/inspect_bridge.js` — the script running inside
+ *  `src-tauri/src/scripts/preview_bridge.js` — the script running inside
  *  the iframe and this component are two independent runtimes with no
  *  shared import, so the string has to be kept in sync by hand. */
-const CLI_CK_INSPECT_MARKER = "__cli_ck_inspect__";
+const CLI_CK_BRIDGE_MARKER = "__cli_ck_bridge__";
+
+const DEFAULT_RUN_TIMEOUT_MS = 15_000;
 
 /** Facts about one clicked preview element, reported by the injected bridge
- *  script (see inspect_bridge.js). Deliberately a fixed, budget-capped
+ *  script (see preview_bridge.js). Deliberately a fixed, budget-capped
  *  shape — not a raw DOM dump. */
 export type InspectedElementFacts = {
   selector: string;
@@ -34,6 +36,17 @@ export type InspectedElementFacts = {
   style: Record<string, string>;
   aria: Record<string, string>;
   sourcePointer: { fileName: string; lineNumber: number | null } | null;
+};
+
+/** Result of one `runInPreview` call — mirrors the bridge script's
+ *  `run_result` message. `result` is whatever the script returned
+ *  (JSON-safe, budget-capped by the bridge); `snapshot` is populated only
+ *  when requested. */
+export type PreviewRunResult = {
+  ok: boolean;
+  result?: unknown;
+  error?: string;
+  snapshot: string | null;
 };
 
 export type PreviewPaneHandle = {
@@ -47,6 +60,15 @@ export type PreviewPaneHandle = {
   /** Disarms click-to-inspect early (e.g. a Cancel button) and resolves any
    *  in-flight `inspectElement()` call with `null`. */
   cancelInspect: () => void;
+  /** Runs `js` as an async function body inside the preview iframe, with
+   *  `click(locator)`/`fill(locator, value)`/`wait(locator | ms)`/
+   *  `read(locator)` bound as locals. Resolves `{ok:false, ...}` (never
+   *  rejects) if there's no page loaded, the script throws, or it doesn't
+   *  finish within `timeoutMs` (default 15s). */
+  runInPreview: (
+    js: string,
+    opts?: { includeSnapshot?: boolean; timeoutMs?: number },
+  ) => Promise<PreviewRunResult>;
 };
 
 type Props = {
@@ -74,6 +96,12 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
       resolve: (facts: InspectedElementFacts | null) => void;
       timer: ReturnType<typeof setTimeout>;
     } | null>(null);
+    const pendingRunsRef = useRef(
+      new Map<
+        string,
+        { resolve: (result: PreviewRunResult) => void; timer: ReturnType<typeof setTimeout> }
+      >(),
+    );
 
     useEffect(() => {
       if (visible) {
@@ -93,49 +121,74 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
       pending.resolve(facts);
     }, []);
 
+    const settleRun = useCallback((requestId: string, result: PreviewRunResult) => {
+      const pending = pendingRunsRef.current.get(requestId);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      pendingRunsRef.current.delete(requestId);
+      pending.resolve(result);
+    }, []);
+
+    // Fails every in-flight runInPreview call — used when the iframe itself
+    // is going away (reload/nonce bump/URL change/suspend), since nothing
+    // will ever answer them after that.
+    const failAllRuns = useCallback((error: string) => {
+      for (const [id, pending] of pendingRunsRef.current) {
+        clearTimeout(pending.timer);
+        pending.resolve({ ok: false, error, snapshot: null });
+        pendingRunsRef.current.delete(id);
+      }
+    }, []);
+
     useEffect(() => {
       function onMessage(event: MessageEvent) {
-        if (!pendingInspectRef.current) return;
         if (event.source !== iframeRef.current?.contentWindow) return;
         const data = event.data as {
           source?: string;
           type?: string;
+          requestId?: string;
           [k: string]: unknown;
         } | null;
-        if (
-          !data ||
-          data.source !== CLI_CK_INSPECT_MARKER ||
-          data.type !== "result"
-        ) {
-          return;
+        if (!data || data.source !== CLI_CK_BRIDGE_MARKER) return;
+        if (data.type === "result" && pendingInspectRef.current) {
+          settleInspect({
+            selector: String(data.selector ?? ""),
+            tag: String(data.tag ?? ""),
+            text: String(data.text ?? ""),
+            rect: data.rect as InspectedElementFacts["rect"],
+            style: data.style as Record<string, string>,
+            aria: data.aria as Record<string, string>,
+            sourcePointer:
+              (data.source_pointer as InspectedElementFacts["sourcePointer"]) ??
+              null,
+          });
+        } else if (data.type === "run_result" && typeof data.requestId === "string") {
+          settleRun(data.requestId, {
+            ok: Boolean(data.ok),
+            result: data.result,
+            error: typeof data.error === "string" ? data.error : undefined,
+            snapshot: typeof data.snapshot === "string" ? data.snapshot : null,
+          });
         }
-        settleInspect({
-          selector: String(data.selector ?? ""),
-          tag: String(data.tag ?? ""),
-          text: String(data.text ?? ""),
-          rect: data.rect as InspectedElementFacts["rect"],
-          style: data.style as Record<string, string>,
-          aria: data.aria as Record<string, string>,
-          sourcePointer:
-            (data.source_pointer as InspectedElementFacts["sourcePointer"]) ??
-            null,
-        });
       }
       window.addEventListener("message", onMessage);
       return () => window.removeEventListener("message", onMessage);
-    }, [settleInspect]);
+    }, [settleInspect, settleRun]);
 
     // Whenever the iframe element itself unmounts — a reload/nonce bump, a
     // URL change, or suspending into SuspendedState — its JS context (and
-    // any armed listener inside it) is gone. An in-flight inspect can never
+    // any armed listener inside it) is gone. Anything in flight can never
     // resolve after that, so fail it immediately instead of leaving it
     // hanging.
     const setIframeEl = useCallback(
       (el: HTMLIFrameElement | null) => {
         iframeRef.current = el;
-        if (!el) settleInspect(null);
+        if (!el) {
+          settleInspect(null);
+          failAllRuns("preview reloaded before the script finished");
+        }
       },
-      [settleInspect],
+      [settleInspect, failAllRuns],
     );
 
     useImperativeHandle(
@@ -159,19 +212,47 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
             pendingInspectRef.current = { resolve, timer };
             setInspecting(true);
             win.postMessage(
-              { source: CLI_CK_INSPECT_MARKER, type: "start" },
+              { source: CLI_CK_BRIDGE_MARKER, type: "start" },
               "*",
             );
           }),
         cancelInspect: () => {
           iframeRef.current?.contentWindow?.postMessage(
-            { source: CLI_CK_INSPECT_MARKER, type: "stop" },
+            { source: CLI_CK_BRIDGE_MARKER, type: "stop" },
             "*",
           );
           settleInspect(null);
         },
+        runInPreview: (js, opts) =>
+          new Promise<PreviewRunResult>((resolve) => {
+            const win = iframeRef.current?.contentWindow;
+            if (!win) {
+              resolve({ ok: false, error: "no preview loaded", snapshot: null });
+              return;
+            }
+            const requestId = crypto.randomUUID();
+            const timeoutMs = opts?.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
+            const timer = setTimeout(() => {
+              settleRun(requestId, {
+                ok: false,
+                error: `script did not finish within ${timeoutMs}ms`,
+                snapshot: null,
+              });
+            }, timeoutMs);
+            pendingRunsRef.current.set(requestId, { resolve, timer });
+            win.postMessage(
+              {
+                source: CLI_CK_BRIDGE_MARKER,
+                type: "run",
+                requestId,
+                js,
+                includeSnapshot: opts?.includeSnapshot ?? false,
+              },
+              "*",
+            );
+          }),
       }),
-      [url, settleInspect],
+      [url, settleInspect, settleRun],
     );
 
     const showXfoHint = url ? !isLocalUrl(url) : false;
@@ -219,7 +300,7 @@ export const WorkspacePreviewPane = forwardRef<PreviewPaneHandle, Props>(
                 type="button"
                 onClick={() => {
                   iframeRef.current?.contentWindow?.postMessage(
-                    { source: CLI_CK_INSPECT_MARKER, type: "stop" },
+                    { source: CLI_CK_BRIDGE_MARKER, type: "stop" },
                     "*",
                   );
                   settleInspect(null);

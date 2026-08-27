@@ -37,6 +37,7 @@ function buildWorkerDeps(ctx: ToolContext): WorkerDeps {
     isActiveTerminalPrivate: live.isActiveTerminalPrivate,
     injectIntoActivePty: live.injectIntoActivePty,
     openPreview: live.openPreview,
+    runInPreview: live.runInPreview,
     getModelTiers: () => prefs.modelTiers,
     getCustomEndpointKeys: () => customEndpointKeys,
     getLocalProviderConfig: () => ({

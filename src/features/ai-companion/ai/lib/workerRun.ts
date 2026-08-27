@@ -6,6 +6,7 @@ import {
 import { SUBAGENT_MAX_STEPS } from "../agents/runSubagent";
 import { DEFAULT_MODEL_ID, type ModelTier } from "../config";
 import type { ToolContext } from "../tools/context";
+import type { PreviewRunResult } from "@/features/workspace-core/preview";
 import {
   createContextAwareTransport,
   type LocalProviderConfig,
@@ -67,6 +68,10 @@ export type WorkerDeps = {
   isActiveTerminalPrivate: () => boolean;
   injectIntoActivePty: (text: string) => boolean;
   openPreview: (url: string) => boolean;
+  runInPreview: (
+    js: string,
+    opts?: { includeSnapshot?: boolean },
+  ) => Promise<PreviewRunResult | null>;
   getModelTiers: () => Partial<Record<ModelTier, string>>;
   getLocalProviderConfig: () => LocalProviderConfig;
   getCustomEndpointKeys: () => CustomEndpointKeys;
@@ -139,6 +144,7 @@ export function createWorkerChat(
     injectIntoActivePty: deps.injectIntoActivePty,
     openPreview: deps.openPreview,
     requestElementInspection: async () => null,
+    runInPreview: deps.runInPreview,
     spawnAgent: () => null,
     readAgentOutput: () => null,
     readCache,

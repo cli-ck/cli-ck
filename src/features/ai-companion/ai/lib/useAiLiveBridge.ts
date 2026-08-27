@@ -78,6 +78,24 @@ export function useAiLiveBridge(params: Params) {
       return explorerRoot ?? launchCwd ?? home ?? null;
     };
 
+    // The active preview tab if there is one, else the most-recently-open
+    // one — same "prefer active, fall back to most recent" shape as
+    // findCwd above, applied to preview tabs instead of terminal tabs.
+    const pickPreviewHandle = () => {
+      const { activeId, tabs } = ref.current;
+      const active = tabs.find((t) => t.id === activeId);
+      let targetId = active?.kind === "preview" ? active.id : null;
+      if (targetId == null) {
+        for (let i = tabs.length - 1; i >= 0; i--) {
+          if (tabs[i].kind === "preview") {
+            targetId = tabs[i].id;
+            break;
+          }
+        }
+      }
+      return targetId == null ? null : (previewRefs.current.get(targetId) ?? null);
+    };
+
     setLive({
       getCwd: findCwd,
       getTerminalContext: () => {
@@ -117,21 +135,14 @@ export function useAiLiveBridge(params: Params) {
         return true;
       },
       requestElementInspection: async () => {
-        const { activeId, tabs } = ref.current;
-        const active = tabs.find((t) => t.id === activeId);
-        let targetId = active?.kind === "preview" ? active.id : null;
-        if (targetId == null) {
-          for (let i = tabs.length - 1; i >= 0; i--) {
-            if (tabs[i].kind === "preview") {
-              targetId = tabs[i].id;
-              break;
-            }
-          }
-        }
-        if (targetId == null) return null;
-        const handle = previewRefs.current.get(targetId);
+        const handle = pickPreviewHandle();
         if (!handle) return null;
         return handle.inspectElement();
+      },
+      runInPreview: async (js, opts) => {
+        const handle = pickPreviewHandle();
+        if (!handle) return null;
+        return handle.runInPreview(js, opts);
       },
       spawnManagedAgent: (prompt: string, sessionId: string) => {
         const trimmed = prompt.trim();

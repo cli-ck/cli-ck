@@ -11,9 +11,9 @@ use tauri::{PhysicalPosition, WindowEvent};
 use tauri_plugin_window_state::StateFlags;
 
 /// Injected into every frame of the main window (including the preview
-/// iframe) — see the script's own header comment for what it does and why
-/// it's scoped this narrowly.
-const INSPECT_BRIDGE_JS: &str = include_str!("scripts/inspect_bridge.js");
+/// iframe) — click-to-inspect plus browser_execute's script/locator
+/// primitives. See the script's own header comment for the full design.
+const PREVIEW_BRIDGE_JS: &str = include_str!("scripts/preview_bridge.js");
 
 /// Drained on first read so HMR / re-mounts can't replay the launch dir.
 #[derive(Default)]
@@ -204,7 +204,7 @@ pub fn run() {
                 .cloned()
                 .expect("main window must be declared in tauri.conf.json");
             WebviewWindowBuilder::from_config(app, &main_config)?
-                .initialization_script_for_all_frames(INSPECT_BRIDGE_JS)
+                .initialization_script_for_all_frames(PREVIEW_BRIDGE_JS)
                 .build()?;
 
             // macOS skips parent() for the settings window, so tie its lifecycle

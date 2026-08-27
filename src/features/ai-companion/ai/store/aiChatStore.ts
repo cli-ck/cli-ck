@@ -30,7 +30,10 @@ import {
 } from "../lib/keyring";
 import { pushRecentModel } from "../lib/modelPrefs";
 import { availableModelsForTiers } from "../lib/modelTiers";
-import type { InspectedElementFacts } from "@/features/workspace-core/preview";
+import type {
+  InspectedElementFacts,
+  PreviewRunResult,
+} from "@/features/workspace-core/preview";
 import { useTodosStore } from "./todoStore";
 
 export type Live = {
@@ -42,6 +45,10 @@ export type Live = {
   getActiveFile: () => string | null;
   openPreview: (url: string) => boolean;
   requestElementInspection: () => Promise<InspectedElementFacts | null>;
+  runInPreview: (
+    js: string,
+    opts?: { includeSnapshot?: boolean },
+  ) => Promise<PreviewRunResult | null>;
   spawnManagedAgent: (
     prompt: string,
     sessionId: string,
@@ -181,6 +188,7 @@ const NOOP_LIVE: Live = {
   getActiveFile: () => null,
   openPreview: () => false,
   requestElementInspection: async () => null,
+  runInPreview: async () => null,
   spawnManagedAgent: () => null,
   readLeafBuffer: () => null,
 };
