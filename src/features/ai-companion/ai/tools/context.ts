@@ -1,4 +1,7 @@
-import type { InspectedElementFacts } from "@/features/workspace-core/preview";
+import type {
+  InspectedElementFacts,
+  PreviewRunResult,
+} from "@/features/workspace-core/preview";
 
 export type ToolContext = {
   /** Active terminal tab cwd, used to resolve relative paths. Null = home. */
@@ -22,6 +25,16 @@ export type ToolContext = {
    * user doesn't click anything before the tool's own timeout.
    */
   requestElementInspection: () => Promise<InspectedElementFacts | null>;
+  /**
+   * Runs `js` inside the active (or most-recently-open) preview tab's page,
+   * with `click(locator)`/`fill(locator, value)`/`wait(locator | ms)`/
+   * `read(locator)` bound as locals — one script per call, not one tool
+   * call per action. Resolves `null` if there's no preview tab open.
+   */
+  runInPreview: (
+    js: string,
+    opts?: { includeSnapshot?: boolean },
+  ) => Promise<PreviewRunResult | null>;
   /** Spawn a Claude Code agent in a new terminal tab, bound to this session. */
   spawnAgent: (prompt: string) => { tabId: number; leafId: number } | null;
   /** Read the terminal scrollback tail of a managed agent's leaf. */

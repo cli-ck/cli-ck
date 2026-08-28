@@ -70,6 +70,7 @@ The themes below frame every scope decision.
 - [x] Workspace file picker
 - [x] Auto-compact for long context
 - [x] Click-to-inspect preview elements (`inspect_ui_element`): structured selector/style/ARIA/source-pointer facts instead of a screenshot, inspired by a comparison against stablyai/orca's Design Mode
+- [x] `browser_execute`: scripted control of the preview pane — one script per call (click/fill/wait/read a locator), plus a compact element snapshot instead of a screenshot; inspired by a comparison against citrolabs/ego-lite's driver layer
 
 ### Web Preview
 

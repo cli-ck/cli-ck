@@ -38,6 +38,8 @@ function makeChat(sessionId: string): Chat<UIMessage> {
     openPreview: (url) => useAiChatStore.getState().live.openPreview(url),
     requestElementInspection: () =>
       useAiChatStore.getState().live.requestElementInspection(),
+    runInPreview: (js, opts) =>
+      useAiChatStore.getState().live.runInPreview(js, opts),
     spawnAgent: (prompt) =>
       useAiChatStore.getState().live.spawnManagedAgent(prompt, sessionId),
     readAgentOutput: (leafId) =>
