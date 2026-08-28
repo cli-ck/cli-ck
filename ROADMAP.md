@@ -103,7 +103,7 @@ The themes below frame every scope decision.
 - [ ] Themes and customizations (terminal themes, UI accents, keybindings, layout)
 - [ ] AI autocomplete improvements in editor (project-aware context, lower latency)
 - [ ] Drag and drop in terminal (files as quoted paths, AI panel as context)
-- [ ] AI agent meta-orchestration (cli-ck agent spawning and managing external coding agents like Claude Code / OpenCode)
+- [x] AI agent meta-orchestration, provisioning primitive: `agent_worktree_create` provisions a new git worktree off `origin/main` (APFS `clonefile`-fast-copied `node_modules`/`src-tauri/target` when available, portable copy fallback otherwise), ready for the frontend to open a terminal tab into via the existing `pty_open` — inspired by a comparison against stablyai/orca's fast worktree provisioning. Native-hook agent status needed no new code, since a spawned PTY session already gets `modules/pty/agent_detect.rs` + the `agent.rs` hook installer for free. Add in future: a management UI/dashboard for a pool of concurrently orchestrated agents, and cross-session coordination — neither exists yet.
 - [ ] More slash commands and skills
 - [ ] Approval flow improvements (YOLO / auto-approve, project-scoped policies, per-tool trust)
 - [ ] Persistent terminal sessions and layout restore
