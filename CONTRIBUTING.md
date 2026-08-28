@@ -162,28 +162,28 @@ Within a PR, individual commit messages can be free-form (they get squashed or g
 ## Project layout
 
 ```
-src-tauri/                  Rust backend
+src-tauri/                       Rust backend
   src/modules/
-    pty/                    Terminal sessions, shell integration, DA filter
-    fs/                     File system commands
-    git/                    Source control
-    net/                    AI HTTP proxy with SSRF guard
-    workspace/              WSL bridge, workspace env
+    pty/                         Terminal sessions, shell integration, DA filter
+    fs/                          File system commands
+    git/                         Source control
+    net.rs                       AI HTTP proxy with SSRF guard
+    workspace.rs                 WSL bridge, workspace env
 
 src/
-  modules/
-    terminal/               xterm.js sessions, OSC handlers, renderer pool
-    editor/                 CodeMirror stack, AI autocomplete
-    explorer/               File tree
-    tabs/                   Tab/split model
-    ai/                     Agents, sessions, tools, providers, mini-window
-    git-history/            Git graph and history pane
-    source-control/         Source control panel
-    preview/                Image / Markdown / web preview
-    settings/               Settings UI and preferences store
-    shortcuts/              Keymap
-  app/                      Top-level App.tsx
-  components/               shadcn/ui + AI Elements
+  features/
+    shell-pty/terminal/          xterm.js sessions, OSC handlers, renderer pool
+    code-pane/editor/            CodeMirror stack, AI autocomplete
+    workspace-core/explorer/     File tree
+    workspace-core/tabs/         Tab/split model
+    ai-companion/ai/             Agents, sessions, tools, providers, mini-window
+    vcs-git/git-history/         Git graph and history pane
+    vcs-git/source-control/      Source control panel
+    workspace-core/preview/      Image / Markdown / web preview
+    layout-chrome/shortcuts/     Keymap
+  settings/                      Settings UI and preferences store
+  app/                           Top-level App.tsx
+  components/                    shadcn/ui + AI Elements
 ```
 
 ## Releasing
