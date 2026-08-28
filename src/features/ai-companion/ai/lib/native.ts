@@ -181,11 +181,7 @@ export const native = {
       maxResults: params.maxResults ?? null,
       workspace: currentWorkspaceEnv(),
     }),
-  runCommand: (
-    command: string,
-    cwd?: string | null,
-    timeoutSecs?: number,
-  ) =>
+  runCommand: (command: string, cwd?: string | null, timeoutSecs?: number) =>
     invoke<CommandOutput>("shell_run_command", {
       command,
       cwd: cwd ?? null,
@@ -246,6 +242,26 @@ export const native = {
         exit_code: number | null;
       }[]
     >("shell_bg_list"),
+  browserAutomationRun: (
+    js: string,
+    opts?: { url?: string; includeSnapshot?: boolean },
+  ) =>
+    invoke<{
+      ok: boolean;
+      result: unknown;
+      error: string | null;
+      snapshot: string | null;
+      url: string | null;
+    }>("browser_automation_run", {
+      url: opts?.url ?? null,
+      js,
+      includeSnapshot: opts?.includeSnapshot ?? false,
+    }),
+  browserAutomationStatus: () =>
+    invoke<{ active: boolean; url: string | null }>(
+      "browser_automation_status",
+    ),
+  browserAutomationStop: () => invoke<void>("browser_automation_stop"),
   gitResolveRepo: (cwd: string) =>
     invoke<GitRepoInfo | null>("git_resolve_repo", {
       cwd,
@@ -320,7 +336,10 @@ export const native = {
       repoRoot,
       workspace: currentWorkspaceEnv(),
     }),
-  gitLog: (repoRoot: string, options?: { limit?: number; beforeSha?: string }) =>
+  gitLog: (
+    repoRoot: string,
+    options?: { limit?: number; beforeSha?: string },
+  ) =>
     invoke<GitLogEntry[]>("git_log", {
       repoRoot,
       limit: options?.limit ?? null,

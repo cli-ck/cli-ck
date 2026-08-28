@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod browser_automation;
 pub mod claude_cli;
 pub mod code_intel;
 pub mod fs;

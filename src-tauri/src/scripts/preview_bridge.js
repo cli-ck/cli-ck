@@ -356,6 +356,22 @@ if (typeof module !== "undefined" && module.exports) {
     runScript: runScript,
   };
 } else {
+  // Exposed unconditionally (not gated by the "nested frame only" check
+  // below) so a CDP-driven session — a real, separate Chromium instance
+  // launched for browser_automate, its own top frame — can call these
+  // directly via Runtime.evaluate, the same way browser_execute's
+  // postMessage handler below calls them for the in-app preview iframe.
+  // See src-tauri/src/modules/browser_automation.rs.
+  window.__cliCkBridge = {
+    resolveLocator: resolveLocator,
+    buildSnapshot: buildSnapshot,
+    readPrimitive: readPrimitive,
+    clickPrimitive: clickPrimitive,
+    fillPrimitive: fillPrimitive,
+    waitPrimitive: waitPrimitive,
+    runScript: runScript,
+  };
+
   (function () {
     // Never run in the app's own top-level UI — only inside a nested frame
     // (the preview iframe, or a frame nested inside it — see

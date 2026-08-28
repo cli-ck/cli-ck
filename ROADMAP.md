@@ -71,6 +71,7 @@ The themes below frame every scope decision.
 - [x] Auto-compact for long context
 - [x] Click-to-inspect preview elements (`inspect_ui_element`): structured selector/style/ARIA/source-pointer facts instead of a screenshot, inspired by a comparison against stablyai/orca's Design Mode
 - [x] `browser_execute`: scripted control of the preview pane — one script per call (click/fill/wait/read a locator), plus a compact element snapshot instead of a screenshot; inspired by a comparison against citrolabs/ego-lite's driver layer
+- [x] `browser_automate`: same script model against a real, separate Chromium instance (system-installed Chrome, launched visibly — never a silent automated browser) — for testing against arbitrary sites the dev-preview iframe can't reach
 
 ### Web Preview
 
