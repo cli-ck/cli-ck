@@ -72,6 +72,7 @@ The themes below frame every scope decision.
 - [x] Click-to-inspect preview elements (`inspect_ui_element`): structured selector/style/ARIA/source-pointer facts instead of a screenshot, inspired by a comparison against stablyai/orca's Design Mode
 - [x] `browser_execute`: scripted control of the preview pane — one script per call (click/fill/wait/read a locator), plus a compact element snapshot instead of a screenshot; inspired by a comparison against citrolabs/ego-lite's driver layer
 - [x] `browser_automate`: same script model against a real, separate Chromium instance (system-installed Chrome, launched visibly — never a silent automated browser) — for testing against arbitrary sites the dev-preview iframe can't reach
+- [x] Auto-seed linked GitHub issue context: pasting a `github.com/.../issues/N` link into a fresh session's first message seeds its title/body/recent comments ahead of the prompt, inspired by a comparison against stablyai/orca. Unauthenticated public-repo reads only — authenticated/private-repo access and Linear support are add-in-future, not built here.
 
 ### Web Preview
 

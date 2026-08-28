@@ -1,13 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useWhisperRecording } from "../hooks/useWhisperRecording";
 import { expandSnippetTokens, type Snippet } from "../lib/snippets";
+import {
+  fetchGithubIssue,
+  formatIssueContext,
+  parseGithubIssueUrl,
+} from "./github";
 import { tryRunSlashCommand, type SlashCommandMeta } from "./slashCommands";
 import { getChat, useAiChatStore } from "../store/aiChatStore";
 import { useSnippetsStore } from "../store/snippetsStore";
@@ -131,9 +130,7 @@ export function AiComposerProvider({ children }: ProviderProps) {
         next.push({
           id: sel.id,
           name:
-            sel.source === "editor"
-              ? "Editor selection"
-              : "Terminal selection",
+            sel.source === "editor" ? "Editor selection" : "Terminal selection",
           kind: "selection",
           mediaType: "text/plain",
           text: sel.text,
@@ -231,7 +228,11 @@ export function AiComposerProvider({ children }: ProviderProps) {
     let effectiveText = trimmed;
     let commandMarker: string | null = null;
     let commandSource = trimmed;
-    if (pickedCommands.length > 0 && !trimmed.startsWith("/") && !trimmed.startsWith("#")) {
+    if (
+      pickedCommands.length > 0 &&
+      !trimmed.startsWith("/") &&
+      !trimmed.startsWith("#")
+    ) {
       commandSource = `#${pickedCommands[0].name} ${trimmed}`.trim();
     }
     if (commandSource.startsWith("/") || commandSource.startsWith("#")) {
@@ -262,10 +263,8 @@ export function AiComposerProvider({ children }: ProviderProps) {
         (f) =>
           `<selection source="${f.source ?? "terminal"}">\n${f.text ?? ""}\n</selection>`,
       );
-    const { body: bodyAfterTokens, blocks: snippetBlocks } = expandSnippetTokens(
-      effectiveText,
-      useSnippetsStore.getState().snippets,
-    );
+    const { body: bodyAfterTokens, blocks: snippetBlocks } =
+      expandSnippetTokens(effectiveText, useSnippetsStore.getState().snippets);
     const seenHandles = new Set<string>();
     const allSnippetBlocks: string[] = [];
     for (const s of pickedSnippets) {
@@ -310,6 +309,30 @@ export function AiComposerProvider({ children }: ProviderProps) {
     void (async () => {
       const { getOrCreateChat } = await import("../store/aiChatRuntime");
       const chat = getOrCreateChat(sessionId);
+      if (chat.messages.length === 0) {
+        // First message of a fresh session: if it links a GitHub issue,
+        // seed its title/body/recent comments ahead of the user's text.
+        // Best-effort — a fetch failure just sends the message unmodified.
+        const link = parseGithubIssueUrl(composed);
+        if (link) {
+          try {
+            const issue = await fetchGithubIssue(
+              link.owner,
+              link.repo,
+              link.number,
+            );
+            const context = formatIssueContext(issue);
+            const textPart = parts.find((p) => p.type === "text");
+            if (textPart) {
+              textPart.text = `${context}\n\n${textPart.text}`;
+            } else {
+              parts.unshift({ type: "text", text: context });
+            }
+          } catch (e) {
+            console.warn("github issue context fetch failed:", e);
+          }
+        }
+      }
       void chat.sendMessage({ role: "user", parts } as Parameters<
         typeof chat.sendMessage
       >[0]);
