@@ -73,6 +73,7 @@ The themes below frame every scope decision.
 - [x] `browser_execute`: scripted control of the preview pane — one script per call (click/fill/wait/read a locator), plus a compact element snapshot instead of a screenshot; inspired by a comparison against citrolabs/ego-lite's driver layer
 - [x] `browser_automate`: same script model against a real, separate Chromium instance (system-installed Chrome, launched visibly — never a silent automated browser) — for testing against arbitrary sites the dev-preview iframe can't reach
 - [x] Auto-seed linked GitHub issue context: pasting a `github.com/.../issues/N` link into a fresh session's first message seeds its title/body/recent comments ahead of the prompt, inspired by a comparison against stablyai/orca. Unauthenticated public-repo reads only — authenticated/private-repo access and Linear support are add-in-future, not built here.
+- [x] AI agent meta-orchestration, provisioning primitive: `agent_worktree_create` provisions a new git worktree off `origin/main` (APFS `clonefile`-fast-copied `node_modules`/`src-tauri/target` when available, portable copy fallback otherwise), ready for the frontend to open a terminal tab into via the existing `pty_open` — inspired by a comparison against stablyai/orca's fast worktree provisioning. Native-hook agent status needed no new code, since a spawned PTY session already gets `modules/pty/agent_detect.rs` + the `agent.rs` hook installer for free. Add in future: a management UI/dashboard for a pool of concurrently orchestrated agents, and cross-session coordination — neither exists yet.
 
 ### Web Preview
 
@@ -106,7 +107,6 @@ The themes below frame every scope decision.
 - [ ] Themes and customizations (terminal themes, UI accents, keybindings, layout)
 - [ ] AI autocomplete improvements in editor (project-aware context, lower latency)
 - [ ] Drag and drop in terminal (files as quoted paths, AI panel as context)
-- [x] AI agent meta-orchestration, provisioning primitive: `agent_worktree_create` provisions a new git worktree off `origin/main` (APFS `clonefile`-fast-copied `node_modules`/`src-tauri/target` when available, portable copy fallback otherwise), ready for the frontend to open a terminal tab into via the existing `pty_open` — inspired by a comparison against stablyai/orca's fast worktree provisioning. Native-hook agent status needed no new code, since a spawned PTY session already gets `modules/pty/agent_detect.rs` + the `agent.rs` hook installer for free. Add in future: a management UI/dashboard for a pool of concurrently orchestrated agents, and cross-session coordination — neither exists yet.
 - [ ] More slash commands and skills
 - [ ] Approval flow improvements (YOLO / auto-approve, project-scoped policies, per-tool trust)
 - [ ] Persistent terminal sessions and layout restore

@@ -91,8 +91,8 @@ cli-ck is a lightweight open-source terminal (ADE) built on Tauri 2 + Rust and R
 
 - **BYOK providers:** OpenAI, Anthropic, Google (Gemini), Groq, xAI (Grok), Cerebras, OpenRouter, DeepSeek, Mistral, plus any OpenAI-compatible endpoint
 - **Local / offline:** LM Studio, MLX, Ollama
-- **Agentic workflow:** plans, sub-agents, project memory via `cli-ck.md`, file read / write / edit / multi-edit / grep / glob, bash with approval gating, background processes
-- **Composer:** snippets via `#handle`, files via `@path`, slash commands, voice input, attach-to-agent from explorer or selection
+- **Agentic workflow:** plans, sub-agents, project memory via `cli-ck.md`, file read / write / edit / multi-edit / grep / glob, bash with approval gating, background processes, click-to-inspect preview elements, scripted preview/browser control (`browser_execute`, `browser_automate`), agent worktree provisioning
+- **Composer:** snippets via `#handle`, files via `@path`, slash commands, voice input, attach-to-agent from explorer or selection, auto-seeded context from a pasted GitHub issue link
 - **Custom agents** with their own system prompt and tool subset
 - **Plan mode** for multi-step work, generates and confirms before doing
 
