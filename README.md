@@ -144,7 +144,8 @@ cli-ck is **not code-signed or notarized yet** (no paid Apple/Windows certificat
 
 - **Arch / AUR:** `yay -S cli-ck-bin` (or `paru`, etc.). Tracks the latest release.
 - **NixOS / Nix**: use the official flake — `nix profile install github:cli-ck/cli-ck` (non-NixOS), or import the flake and add `inputs.cli-ck.packages.${pkgs.system}.cli-ck` to `environment.systemPackages` (NixOS). The `nixosModules.cli-ck` output is also available for a simpler setup.
-- **AppImage:** needs FUSE. Without it: `./cli-ck_*.AppImage --appimage-extract-and-run`. On Wayland with rendering glitches, try `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Otherwise the `.deb` / `.rpm` packages link against the system GTK stack and tend to be smoother.
+- **AppImage:** needs FUSE. Without it: `./cli-ck_*.AppImage --appimage-extract-and-run`. Otherwise the `.deb` / `.rpm` packages link against the system GTK stack and tend to be smoother.
+- **Wayland:** cli-ck auto-sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` on launch to avoid a WebKitGTK crash ("Error 71 (Protocol error) dispatching to Wayland display") seen on some compositors (e.g. KDE). Set that env var yourself before launch to override.
 
 ## Configure AI
 
