@@ -1,0 +1,3 @@
+# Auto-Seeded GitHub Issue Context from Unauthenticated Reads
+
+We decided to auto-seed a session's first message with a linked GitHub issue's title, body, and recent comments whenever the user pastes a `github.com/.../issues/N` URL, rather than building a dedicated GitHub or Linear integration surface up front. The issue is fetched via GitHub's public REST API with no OAuth or token storage, routed through the app's existing SSRF-hardened HTTP proxy command rather than a new Tauri command. Authenticated access for private repos, and Linear support (which has no unauthenticated read equivalent), are deferred until there's real demand for them.

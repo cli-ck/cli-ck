@@ -1,0 +1,3 @@
+# Persistent SQLite-Backed Call Graph Store
+
+We decided to persist cli-ck-code-intel's in-memory call graph to a local SQLite database (via `rusqlite`, mirroring the existing `adr-store` crate's pattern) rather than rebuilding it from scratch on every process restart. On a cold start, the graph cache warm-starts from the persisted row and serves it immediately, then runs one catch-up rebuild in the background to cover any drift from edits made while the app was closed; every subsequent watcher-triggered rebuild re-persists the graph. `cli-bin`'s one-shot `--snapshot` path and schema-migration handling for a future `FORMAT_VERSION` bump are deferred.

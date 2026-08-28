@@ -1,0 +1,3 @@
+# Context Budget Management via Memory Re-Injection and Compaction
+
+We decided to give the agent harness (`cli-ck-harness`, in cli-ck-llm) two complementary mechanisms for staying within a model's context budget across a long multi-turn agentic loop: a `MemoryContextPlugin` that re-injects durable memories into context with TTL-based suppression so they aren't repeated every turn, and budget-aware compaction (`safe_compaction_cutoff`, `emergency_truncate`) that summarizes or truncates older trajectory events once a token budget is approached. Compaction is called automatically inside the loop rather than left as an opt-in the caller has to remember to invoke.
