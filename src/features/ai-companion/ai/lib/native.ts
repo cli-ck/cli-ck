@@ -91,6 +91,11 @@ export type GitPushResult = {
   pushed: boolean;
 };
 
+export type AgentWorktreeResult = {
+  worktreePath: string;
+  branch: string;
+};
+
 export type GitLogEntry = {
   sha: string;
   shortSha: string;
@@ -375,6 +380,12 @@ export const native = {
     invoke<string | null>("git_remote_url", {
       repoRoot,
       name: name ?? null,
+      workspace: currentWorkspaceEnv(),
+    }),
+  agentWorktreeCreate: (repoRoot: string, branch: string) =>
+    invoke<AgentWorktreeResult>("agent_worktree_create", {
+      repoRoot,
+      branch,
       workspace: currentWorkspaceEnv(),
     }),
 };

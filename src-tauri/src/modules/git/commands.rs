@@ -2,9 +2,10 @@ use tauri::{AppHandle, Manager};
 
 use crate::modules::git::operations;
 use crate::modules::git::types::{
-    DiscardEntry, GitCommitFileChange, GitCommitResult, GitDiffContentResult, GitDiffResult,
-    GitLogEntry, GitPanelSnapshot, GitPushResult, GitRepoInfo, GitStatusSnapshot,
+    AgentWorktreeResult, DiscardEntry, GitCommitFileChange, GitCommitResult, GitDiffContentResult,
+    GitDiffResult, GitLogEntry, GitPanelSnapshot, GitPushResult, GitRepoInfo, GitStatusSnapshot,
 };
+use crate::modules::git::worktree;
 use crate::modules::workspace::{WorkspaceEnv, WorkspaceRegistry};
 
 async fn blocking<F, T>(app: AppHandle, f: F) -> Result<T, String>
@@ -176,6 +177,25 @@ pub async fn git_pull_ff_only(
     let workspace = WorkspaceEnv::from_option(workspace);
     blocking(app, move |r| {
         operations::pull_ff_only(r, &repo_root, &workspace).map_err(Into::into)
+    })
+    .await
+}
+
+/// Provisions a new git worktree branched off `origin/main` for an AI agent
+/// to work in, best-effort warm-started with the source repo's
+/// `node_modules`/`src-tauri/target`. Does not itself launch anything — the
+/// frontend opens a terminal tab at the returned path via the existing
+/// `pty_open` command.
+#[tauri::command]
+pub async fn agent_worktree_create(
+    repo_root: String,
+    branch: String,
+    workspace: Option<WorkspaceEnv>,
+    app: AppHandle,
+) -> Result<AgentWorktreeResult, String> {
+    let workspace = WorkspaceEnv::from_option(workspace);
+    blocking(app, move |r| {
+        worktree::create(r, &repo_root, &branch, &workspace).map_err(Into::into)
     })
     .await
 }

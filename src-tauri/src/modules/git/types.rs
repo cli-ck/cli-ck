@@ -58,6 +58,13 @@ pub struct DiscardEntry {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentWorktreeResult {
+    pub worktree_path: String,
+    pub branch: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitDiffResult {
     pub diff_text: String,
     pub truncated: bool,
