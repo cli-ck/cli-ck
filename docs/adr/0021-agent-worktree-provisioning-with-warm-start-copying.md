@@ -1,0 +1,3 @@
+# Agent Worktree Provisioning with Warm-Start Copying
+
+We decided to give the AI agent orchestration described in ADR 0012 a way to provision an isolated git worktree for an agent to work in: `git worktree add` against `origin/main`, followed by a best-effort warm-start copy of `node_modules` and `target` from the source repo (an APFS `clonefile` copy-on-write fast path on macOS, a plain recursive copy elsewhere) so the agent doesn't hit a cold `npm install` or `cargo build`. The new worktree is handed to the existing `pty_open` session primitive to launch the agent CLI, and status detection needed no new code since it already works per-PTY-session. A management UI for tracking a pool of concurrently orchestrated agents is deferred.

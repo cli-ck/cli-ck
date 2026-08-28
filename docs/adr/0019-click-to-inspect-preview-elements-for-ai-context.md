@@ -1,0 +1,3 @@
+# Click-to-Inspect Preview Elements for AI Context
+
+We decided to give the AI an `inspect_ui_element` tool that lets it click an element inside the app's own dev-preview iframe and receive structured facts (CSS selector, computed style, ARIA role/name, a cropped screenshot, and a React source pointer where available) instead of a full-page screenshot. A Tauri all-frames initialization script runs inside the previewed page, including nested iframes, and reports back over `postMessage`, since a Tauri window can't reach into a cross-origin iframe's DOM directly. This was scoped from a comparison against a competing tool's "Design Mode" feature.

@@ -1,0 +1,3 @@
+# Self-Refinement via Durable Memory Edits from Run Trajectories
+
+We decided to give the agent harness (`cli-ck-harness`, in cli-ck-llm) a self-refinement pass, inspired by PrimeIntellect's Continual Harness, that reviews a completed run's trajectory and proposes durable memory edits (create / update / delete) which are applied to a persisted store and logged to an audit JSONL for traceability. It's scoped to a single "memory" edit kind and is opt-in — never called automatically from the turn loop, since it costs an extra model call. The other edit kinds Continual Harness supports (prompt notes, skills, subagent specs), automatic re-injection of new memories into the very next turn, and rollback tooling beyond manually editing the audit log are deferred.
