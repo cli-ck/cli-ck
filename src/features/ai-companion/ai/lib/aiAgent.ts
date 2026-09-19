@@ -522,12 +522,8 @@ function applyCacheBreakpoints(
   return { instructions: outInstructions, messages: outMessages };
 }
 
-// Fix 3: drop the tools that are provably inert without an active terminal
-// tab — they cost real schema tokens on every call regardless of whether
-// they're used, and can't do anything useful with nothing to act on. Search
-// (grep/glob), subagent, todo, and managed-agent tools are left untouched:
-// those are real capability a task may need regardless of terminal state,
-// not something safe to guess about.
+// Drop tools that are provably inert without their required terminal or
+// workspace. Their schemas cost tokens even when the model never calls them.
 const TERMINAL_ONLY_TOOLS = new Set([
   "bash_background",
   "bash_logs",
@@ -538,13 +534,23 @@ const TERMINAL_ONLY_TOOLS = new Set([
   "get_terminal_output",
 ]);
 
-function trimTerminalOnlyTools<T extends Record<string, unknown>>(
+const WORKSPACE_ONLY_TOOLS = new Set([
+  "trace_code",
+  "get_exact_code",
+  "analyze_diff_impact",
+]);
+
+export function trimUnavailableTools<T extends Record<string, unknown>>(
   tools: T,
   ctx: ToolContext,
 ): T {
-  if (ctx.getTerminalContext() !== null) return tools;
   const out = { ...tools };
-  for (const name of TERMINAL_ONLY_TOOLS) delete out[name];
+  if (ctx.getTerminalContext() === null) {
+    for (const name of TERMINAL_ONLY_TOOLS) delete out[name];
+  }
+  if (ctx.getWorkspaceRoot() === null) {
+    for (const name of WORKSPACE_ONLY_TOOLS) delete out[name];
+  }
   return out;
 }
 
@@ -728,7 +734,7 @@ export async function runAgentStream(opts: RunAgentOptions) {
       extractProtectedFiles(latestUserText(opts.uiMessages)),
     ),
   };
-  let tools = trimTerminalOnlyTools(
+  let tools = trimUnavailableTools(
     buildTools(effectiveToolContext),
     effectiveToolContext,
   );

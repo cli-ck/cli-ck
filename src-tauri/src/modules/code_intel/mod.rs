@@ -4,27 +4,11 @@
 //! search, and more, over a bundled child process speaking newline-delimited
 //! JSON on stdin/stdout.
 //!
-//! **Plumbing only, deliberately not yet wired to anything user- or
-//! AI-facing.** These commands exist and are exercised by this module's own
-//! integration test, but nothing in `buildTools()`
-//! (`src/features/ai-companion/ai/tools/tools.ts`) calls them yet, and no
-//! settings/UI surface references them. That's intentional, not an
-//! oversight: cli-ck-code-intel integration ships as a user-visible feature in
-//! a later cli-ck release, not this one.
-//!
-//! **Not yet registered as a bundled Tauri sidecar** (no
-//! `bundle.externalBin` entry in `tauri.conf.json`) - that would require a
-//! real per-platform `cli-ck-code-intel` binary to exist at build time for
-//! every platform this app ships (macOS x2, Windows, Linux), which depends
-//! on that repo's own release pipeline actually firing (see its
-//! ROADMAP.md, Slice 25) or a cross-repo build step neither exists yet.
-//! `CodeIntelSession::spawn`'s `app.shell().sidecar(...)` call will return
-//! a clear "sidecar not registered" error until that's wired up - harmless,
-//! since nothing calls it. Add the `externalBin` entry back (and a
-//! matching `shell:allow-execute` capability) once a real binary supply
-//! chain exists; don't paper over the gap with a placeholder file in the
-//! meantime; a real `tauri build` bundles and *signs* whatever is at that
-//! path, so a fake stand-in has no safe place to hide.
+//! The three free, read-only Code Intel tools are registered in the AI Sidebar
+//! via `buildTools()` (`src/features/ai-companion/ai/tools/tools.ts`). Tauri
+//! bundles the helper from `src-tauri/binaries` and signs it with the app.
+//! Release workflows stage only the version-pinned, SHA-256-verified asset
+//! from the private `cli-ck-code-intel` release before invoking Tauri.
 mod session;
 
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -97,8 +81,12 @@ mod tests {
     /// checkout) - see `src-tauri/binaries/README.md` for how to build one
     /// locally; this test skips itself, loudly, if it's missing.
     fn dev_helper_binary() -> Option<std::path::PathBuf> {
-        let candidate = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../cli-ck-code-intel/target/release/cli-ck-code-intel");
+        let candidate = std::env::var_os("CLI_CK_CODE_INTEL_BINARY")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../cli-ck-code-intel/target/release/cli-ck-code-intel")
+            });
         candidate.exists().then_some(candidate)
     }
 
@@ -170,5 +158,95 @@ mod tests {
         let matches = response["payload"]["matches"].as_array().unwrap();
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0]["file"], "main.rs");
+    }
+
+    #[test]
+    fn real_helper_answers_the_three_ai_sidebar_requests() {
+        let Some(binary) = dev_helper_binary() else {
+            eprintln!("skipping: no local cli-ck-code-intel build, see binaries/README.md");
+            return;
+        };
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("workspace.ts"),
+            "function saveWorkspace() {}\nfunction caller() { saveWorkspace(); }\n",
+        )
+        .unwrap();
+        let repo = tmp.path().to_str().unwrap();
+        assert!(
+            std::process::Command::new("git")
+                .args(["-C", repo, "init", "-b", "main"])
+                .status()
+                .unwrap()
+                .success()
+        );
+        for args in [
+            &["config", "user.email", "tests@cli-ck.dev"][..],
+            &["config", "user.name", "cli-ck tests"][..],
+            &["add", "workspace.ts"][..],
+            &["commit", "-m", "initial workspace"][..],
+        ] {
+            assert!(
+                std::process::Command::new("git")
+                    .args(["-C", repo])
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        std::fs::write(
+            tmp.path().join("workspace.ts"),
+            "function saveWorkspace() { return true; }\nfunction caller() { saveWorkspace(); }\n",
+        )
+        .unwrap();
+
+        let trace = serde_json::json!({
+            "id": 1,
+            "payload": {
+                "type": "trace_call_chain",
+                "repo_path": tmp.path().to_string_lossy(),
+                "function_name": "saveWorkspace",
+                "direction": "both",
+                "depth": 2,
+                "include_tests": false,
+                "mode": "calls",
+            }
+        });
+        let response = round_trip(&binary, &trace.to_string());
+        assert_eq!(response["payload"]["type"], "trace_call_chain");
+        assert_eq!(response["payload"]["callers_total"], 1);
+
+        let snippet = serde_json::json!({
+            "id": 1,
+            "payload": {
+                "type": "get_code_snippet",
+                "repo_path": tmp.path().to_string_lossy(),
+                "qualified_name": "saveWorkspace",
+                "include_neighbors": false,
+            }
+        });
+        let response = round_trip(&binary, &snippet.to_string());
+        assert_eq!(response["payload"]["type"], "get_code_snippet");
+        assert!(
+            response["payload"]["source"]
+                .as_str()
+                .unwrap()
+                .contains("saveWorkspace")
+        );
+
+        let impact = serde_json::json!({
+            "id": 1,
+            "payload": {
+                "type": "diff_impact",
+                "repo_path": tmp.path().to_string_lossy(),
+                "base": "main",
+                "direction": "inbound",
+                "depth": 2,
+            }
+        });
+        let response = round_trip(&binary, &impact.to_string());
+        assert_eq!(response["payload"]["type"], "diff_impact");
+        assert_eq!(response["payload"]["changed_files"][0], "workspace.ts");
     }
 }

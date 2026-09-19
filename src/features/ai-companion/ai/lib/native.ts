@@ -38,6 +38,8 @@ export type GrepResponse = {
 export type GlobHit = { path: string; rel: string };
 export type GlobResponse = { hits: GlobHit[]; truncated: boolean };
 
+export type CodeIntelResponse = Record<string, unknown>;
+
 export type GitRepoInfo = {
   repoRoot: string;
   branch: string;
@@ -152,6 +154,9 @@ export const native = {
       path,
       workspace: currentWorkspaceEnv(),
     }),
+  codeIntelSpawn: () => invoke<number>("code_intel_spawn"),
+  codeIntelRequest: (id: number, payload: unknown) =>
+    invoke<CodeIntelResponse>("code_intel_request", { id, payload }),
   createFile: (path: string) =>
     invoke<void>("fs_create_file", { path, workspace: currentWorkspaceEnv() }),
   createDir: (path: string) =>

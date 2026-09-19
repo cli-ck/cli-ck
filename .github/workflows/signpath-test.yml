@@ -35,6 +35,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: x86_64-pc-windows-msvc
+        run: node scripts/fetch-code-intel-sidecar.mjs
+
       - name: Build Tauri (no release upload)
         uses: tauri-apps/tauri-action@v1
         env:
