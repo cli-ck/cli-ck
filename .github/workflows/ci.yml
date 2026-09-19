@@ -167,6 +167,12 @@ jobs:
         with:
           tool: cargo-llvm-cov,cargo-nextest
 
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
+        run: node scripts/fetch-code-intel-sidecar.mjs
+
       - name: Generate coverage
         working-directory: src-tauri
         run: cargo llvm-cov nextest --locked --lcov --output-path lcov.info
