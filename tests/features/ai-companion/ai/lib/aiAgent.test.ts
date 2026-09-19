@@ -1,7 +1,9 @@
 import {
   extractProtectedFiles,
   mergeProtectedFiles,
+  trimUnavailableTools,
 } from "@/features/ai-companion/ai/lib/aiAgent";
+import type { ToolContext } from "@/features/ai-companion/ai/tools/context";
 import { describe, expect, it } from "vitest";
 
 describe("extractProtectedFiles", () => {
@@ -35,5 +37,21 @@ describe("mergeProtectedFiles", () => {
     expect(mergeProtectedFiles(inherited, new Set())).toEqual(
       new Set(["secrets.env"]),
     );
+  });
+});
+
+describe("trimUnavailableTools", () => {
+  it("omits Code Intel schemas when no workspace is open", () => {
+    const ctx = {
+      getTerminalContext: () => null,
+      getWorkspaceRoot: () => null,
+    } as ToolContext;
+
+    expect(
+      trimUnavailableTools(
+        { trace_code: true, get_exact_code: true, analyze_diff_impact: true, grep: true },
+        ctx,
+      ),
+    ).toEqual({ grep: true });
   });
 });

@@ -25,6 +25,7 @@
     "os:default",
     "notification:default",
     "store:default",
+    "shell:allow-execute",
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled"

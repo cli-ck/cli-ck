@@ -78,6 +78,12 @@ jobs:
         with:
           tool: cargo-nextest,cargo-machete
 
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
+        run: node scripts/fetch-code-intel-sidecar.mjs
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --all-targets --locked
@@ -100,7 +106,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            sidecar-target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            sidecar-target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -114,6 +124,12 @@ jobs:
       - uses: taiki-e/install-action@v2.86.7
         with:
           tool: cargo-nextest
+
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: ${{ matrix.sidecar-target }}
+        run: node scripts/fetch-code-intel-sidecar.mjs
 
       - name: cargo check
         working-directory: src-tauri
@@ -150,6 +166,12 @@ jobs:
       - uses: taiki-e/install-action@v2.86.7
         with:
           tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
+        run: node scripts/fetch-code-intel-sidecar.mjs
 
       - name: Generate coverage
         working-directory: src-tauri

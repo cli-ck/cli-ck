@@ -42,6 +42,9 @@
   },
   "bundle": {
     "active": true,
+    "externalBin": [
+      "binaries/cli-ck-code-intel"
+    ],
     "targets": "all",
     "createUpdaterArtifacts": true,
     "copyright": "Copyright 2026 CodeCollab Co.",
