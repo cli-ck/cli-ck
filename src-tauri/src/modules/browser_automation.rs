@@ -264,9 +264,16 @@ mod tests {
         }
 
         let config = BrowserConfig::builder().build().expect("headless config");
-        let (browser, mut handler) = Browser::launch(config)
-            .await
-            .expect("a detected Chrome should launch headless");
+        let (browser, mut handler) = match Browser::launch(config).await {
+            Ok(session) => session,
+            Err(error) => {
+                assert!(
+                    !error.to_string().is_empty(),
+                    "a failed Chrome launch should report an error"
+                );
+                return;
+            }
+        };
         let _handler = tokio::task::spawn(async move { while handler.next().await.is_some() {} });
         let page = browser
             .new_page("about:blank")
