@@ -1,15 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
+  type CustomEndpoint,
   getProvider,
   KEYRING_SERVICE,
   PROVIDERS,
   providerSupportsKey,
-  type CustomEndpoint,
   type ProviderId,
 } from "../config";
 
 export type ProviderKeys = Record<ProviderId, string | null>;
 export type CustomEndpointKeys = Record<string, string | null>;
+const TYPESAFE_KEYRING_ACCOUNT = "typesafe-api-key";
 
 export const EMPTY_PROVIDER_KEYS: ProviderKeys = {
   openai: null,
@@ -154,4 +155,39 @@ export async function getAllCustomEndpointKeys(
     }
   }
   return out;
+}
+
+/** Jev is a decision service, not a chat-model provider, so its key stays
+ * separate from ProviderKeys and never appears in the model picker. */
+export async function getTypesafeApiKey(): Promise<string | null> {
+  try {
+    const value = await invoke<string | null>("secrets_get", {
+      service: KEYRING_SERVICE,
+      account: TYPESAFE_KEYRING_ACCOUNT,
+    });
+    return value && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setTypesafeApiKey(key: string): Promise<void> {
+  const trimmed = key.trim();
+  if (!trimmed) throw new Error("API key is empty");
+  await invoke("secrets_set", {
+    service: KEYRING_SERVICE,
+    account: TYPESAFE_KEYRING_ACCOUNT,
+    password: trimmed,
+  });
+}
+
+export async function clearTypesafeApiKey(): Promise<void> {
+  try {
+    await invoke("secrets_delete", {
+      service: KEYRING_SERVICE,
+      account: TYPESAFE_KEYRING_ACCOUNT,
+    });
+  } catch {
+    // Already absent is a successful clear.
+  }
 }

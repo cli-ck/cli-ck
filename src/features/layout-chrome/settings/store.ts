@@ -16,6 +16,7 @@ import {
   type ProviderId,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
+import type { JevRoutingMode } from "@/features/ai-companion/ai/lib/taskRouting";
 import type {
   KeyBinding,
   ShortcutId,
@@ -173,6 +174,8 @@ export type Preferences = {
    *  model's system prompt when it's in use. See modelFriction.ts for the
    *  auto-captured counterpart (step-cap hits, errors). */
   modelNotes: Record<string, string>;
+  /** Explicit consent boundary for sending a redacted routing decision to Jev. */
+  jevRoutingMode: JevRoutingMode;
   vimMode: boolean;
   editorWordWrap: boolean;
   showHidden: boolean;
@@ -226,6 +229,7 @@ const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
 const KEY_MODEL_TIERS = "modelTiers";
 const KEY_MODEL_NOTES = "modelNotes";
+const KEY_JEV_ROUTING_MODE = "jevRoutingMode";
 const KEY_VIM_MODE = "vimMode";
 const KEY_EDITOR_WORD_WRAP = "editorWordWrap";
 const KEY_SHOW_HIDDEN = "showHidden";
@@ -296,6 +300,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   recentModelIds: [],
   modelTiers: {},
   modelNotes: {},
+  jevRoutingMode: "off",
   vimMode: false,
   editorWordWrap: false,
   showHidden: false,
@@ -436,6 +441,12 @@ export async function loadPreferences(): Promise<Preferences> {
     modelNotes:
       get<Record<string, string>>(KEY_MODEL_NOTES) ??
       DEFAULT_PREFERENCES.modelNotes,
+    jevRoutingMode: (() => {
+      const value = get<string>(KEY_JEV_ROUTING_MODE);
+      return value === "shadow" || value === "active" || value === "off"
+        ? value
+        : DEFAULT_PREFERENCES.jevRoutingMode;
+    })(),
     vimMode: get<boolean>(KEY_VIM_MODE) ?? DEFAULT_PREFERENCES.vimMode,
     editorWordWrap:
       get<boolean>(KEY_EDITOR_WORD_WRAP) ?? DEFAULT_PREFERENCES.editorWordWrap,
@@ -674,6 +685,10 @@ export async function setModelNotes(
   await writePref(KEY_MODEL_NOTES, value);
 }
 
+export async function setJevRoutingMode(value: JevRoutingMode): Promise<void> {
+  await writePref(KEY_JEV_ROUTING_MODE, value);
+}
+
 export async function setVimMode(value: boolean): Promise<void> {
   await writePref(KEY_VIM_MODE, value);
 }
@@ -820,6 +835,7 @@ export async function onPreferencesChange(
     [KEY_RECENT_MODELS]: "recentModelIds",
     [KEY_MODEL_TIERS]: "modelTiers",
     [KEY_MODEL_NOTES]: "modelNotes",
+    [KEY_JEV_ROUTING_MODE]: "jevRoutingMode",
     [KEY_VIM_MODE]: "vimMode",
     [KEY_EDITOR_WORD_WRAP]: "editorWordWrap",
     [KEY_SHOW_HIDDEN]: "showHidden",

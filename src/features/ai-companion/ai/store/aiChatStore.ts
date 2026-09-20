@@ -83,6 +83,10 @@ export type AgentMeta = {
    *  model" offer when a turn hits the step cap under Auto mode. */
   lastTurnModelId: string | null;
   lastTurnAutoTier: ModelTier | null;
+  lastJevRoute: {
+    suggestedTier: ModelTier | null;
+    applied: boolean;
+  } | null;
   compactionNotice: { droppedCount: number; at: number } | null;
 };
 
@@ -104,6 +108,7 @@ const IDLE_META: AgentMeta = {
   hitStepCap: false,
   lastTurnModelId: null,
   lastTurnAutoTier: null,
+  lastJevRoute: null,
   compactionNotice: null,
 };
 

@@ -201,6 +201,7 @@ export function AiChatView({
   const step = useAiChatStore((s) => s.agentMeta.step);
   const hitStepCap = useAiChatStore((s) => s.agentMeta.hitStepCap);
   const lastTurnAutoTier = useAiChatStore((s) => s.agentMeta.lastTurnAutoTier);
+  const lastJevRoute = useAiChatStore((s) => s.agentMeta.lastJevRoute);
   const compactionNotice = useAiChatStore((s) => s.agentMeta.compactionNotice);
   const patchAgentMeta = useAiChatStore((s) => s.patchAgentMeta);
   const apiKeys = useAiChatStore((s) => s.apiKeys);
@@ -260,6 +261,15 @@ export function AiChatView({
             droppedCount={compactionNotice.droppedCount}
             onDismiss={() => patchAgentMeta({ compactionNotice: null })}
           />
+        )}
+        {lastJevRoute && (
+          <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            {lastJevRoute.applied
+              ? `Jev routed this Auto turn to ${lastJevRoute.suggestedTier}.`
+              : lastJevRoute.suggestedTier
+                ? `Jev suggested ${lastJevRoute.suggestedTier}; local Auto stayed in control.`
+                : "Jev was unavailable or below confidence; local Auto stayed in control."}
+          </div>
         )}
         {showSpinner && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
