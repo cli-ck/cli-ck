@@ -11,6 +11,7 @@ import {
   providerNeedsKey,
 } from "../config";
 import { BUILTIN_AGENTS } from "../lib/agents";
+import { getTypesafeApiKey } from "../lib/keyring";
 import { recordFriction } from "../lib/modelFriction";
 import { createContextAwareTransport } from "../lib/transport";
 import type { ToolContext } from "../tools/tools";
@@ -96,12 +97,23 @@ function makeChat(sessionId: string): Chat<UIMessage> {
       });
     },
     getModelTiers: () => usePreferencesStore.getState().modelTiers,
+    getJevRouting: async () => {
+      const mode = usePreferencesStore.getState().jevRoutingMode;
+      return {
+        mode,
+        apiKey: mode === "off" ? null : await getTypesafeApiKey(),
+      };
+    },
     getModelNotes: () => usePreferencesStore.getState().modelNotes,
     onFinishMeta: (info) => {
       useAiChatStore.getState().patchAgentMeta({
         hitStepCap: info.hitStepCap,
         lastTurnModelId: info.modelId,
         lastTurnAutoTier: info.autoTier,
+        lastJevRoute: info.jevRoute && {
+          suggestedTier: info.jevRoute.suggestedTier,
+          applied: info.jevRoute.applied,
+        },
       });
       recordFriction(
         info.modelId,

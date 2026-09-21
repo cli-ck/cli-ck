@@ -3,10 +3,12 @@ import {
   AUTO_MODEL_ID,
   type CustomEndpoint,
   DEFAULT_MODEL_ID,
+  deriveModelTier,
   type ModelTier,
 } from "../config";
 import type { ToolContext } from "../tools/tools";
 import { type AgentUsageDelta, runAgentStream } from "./aiAgent";
+import { runJevTaskRoutingJob } from "./jevTaskRouter";
 import type { CustomEndpointKeys, ProviderKeys } from "./keyring";
 import { isHighFriction } from "./modelFriction";
 import { availableModelsForTiers, resolveTierModel } from "./modelTiers";
@@ -16,9 +18,12 @@ import {
   classifyTaskKind,
   estimateMessagesTokens,
   findLastUserMessage,
+  hasSustainedToolActivity,
   lastMessageHasImage,
+  lastUserText,
   type TaskKind,
 } from "./taskClassifier";
+import { type JevRoutingMode, resolveTaskRoute } from "./taskRouting";
 
 const CLI_CK_MD_MAX_BYTES = 32 * 1024;
 type MemoryCacheEntry = { content: string | null; mtime: number };
@@ -59,6 +64,18 @@ type LiveSnapshot = {
   activeFile: string | null;
 };
 
+type JevRouteMeta = {
+  mode: JevRoutingMode;
+  suggestedTier: ModelTier | null;
+  applied: boolean;
+  source: "jev" | "local";
+  fallbackReason:
+    | "missing-decision"
+    | "ineligible-tier"
+    | "low-confidence"
+    | null;
+};
+
 /** The local/freeform provider fields, all sourced from the same preferences
  *  slice — bundled into one getter instead of one per field. */
 export type LocalProviderConfig = {
@@ -80,6 +97,10 @@ type Deps = {
   toolContext: ToolContext;
   getModelId: () => string;
   getModelTiers?: () => Partial<Record<ModelTier, string>>;
+  getJevRouting?: () => Promise<{
+    mode: JevRoutingMode;
+    apiKey: string | null;
+  }>;
   getCustomInstructions: () => string;
   getAgentPersona: () => { name: string; instructions: string } | null;
   getLive: () => LiveSnapshot;
@@ -95,6 +116,7 @@ type Deps = {
     /** Tier the turn was routed to under Auto mode; null when the user has a
      *  specific model selected (no routing decision was made). */
     autoTier: ModelTier | null;
+    jevRoute: JevRouteMeta | null;
     /** Task domain this turn classified as — fed back into modelFriction so
      *  reliability memory is per-domain, not one blended rate. */
     taskKind: TaskKind;
@@ -131,20 +153,60 @@ export function forwardStreamError(error: unknown): string {
 /** Resolves the Auto sentinel to a concrete model for this turn only —
  *  classified from the outgoing message, never mutates the stored selection.
  *  Returns the raw id unchanged when the user has a specific model selected. */
-function resolveEffectiveModelId(
+async function resolveEffectiveModelId(
   rawModelId: string,
   messages: readonly UIMessage[],
   keys: ProviderKeys,
   tierOverrides: Partial<Record<ModelTier, string>>,
   taskKind: TaskKind,
-): { modelId: string; autoTier: ModelTier | null } {
+  getJevRouting?: Deps["getJevRouting"],
+  jevMessages: readonly UIMessage[] = messages,
+): Promise<{
+  modelId: string;
+  autoTier: ModelTier | null;
+  jevRoute: JevRouteMeta | null;
+}> {
   if (rawModelId !== AUTO_MODEL_ID) {
-    return { modelId: rawModelId, autoTier: null };
+    return { modelId: rawModelId, autoTier: null, jevRoute: null };
   }
-  const autoTier = classifyMessageTier(messages);
+  const fallbackTier = classifyMessageTier(messages);
+  let autoTier = fallbackTier;
   let available = availableModelsForTiers(keys);
   if (lastMessageHasImage(messages)) {
     available = available.filter((m) => m.tags?.includes("vision"));
+  }
+  let jevRoute: JevRouteMeta | null = null;
+  const eligibleTiers = [...new Set(available.map(deriveModelTier))];
+  const jevRouting = await getJevRouting?.();
+  if (
+    jevRouting?.mode !== undefined &&
+    jevRouting.mode !== "off" &&
+    jevRouting.apiKey &&
+    eligibleTiers.length > 1
+  ) {
+    const route = resolveTaskRoute({
+      fallbackTier,
+      eligibleTiers,
+      decision: await runJevTaskRoutingJob(
+        {
+          task: lastUserText(jevMessages),
+          taskKind,
+          eligibleTiers,
+          estimatedInputTokens: estimateMessagesTokens(jevMessages),
+          hasImage: lastMessageHasImage(jevMessages),
+          hasRecentToolActivity: hasSustainedToolActivity(jevMessages),
+        },
+        { apiKey: jevRouting.apiKey },
+      ),
+    });
+    jevRoute = {
+      mode: jevRouting.mode,
+      suggestedTier: route.source === "jev" ? route.tier : null,
+      applied: jevRouting.mode === "active" && route.source === "jev",
+      source: route.source,
+      fallbackReason: route.fallbackReason,
+    };
+    if (jevRoute.applied) autoTier = route.tier;
   }
   const resolved = resolveTierModel(
     autoTier,
@@ -153,7 +215,7 @@ function resolveEffectiveModelId(
     estimateMessagesTokens(messages),
     (modelId) => isHighFriction(modelId, taskKind),
   );
-  return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier };
+  return { modelId: resolved?.id ?? DEFAULT_MODEL_ID, autoTier, jevRoute };
 }
 
 export function createContextAwareTransport(deps: Deps) {
@@ -165,12 +227,14 @@ export function createContextAwareTransport(deps: Deps) {
       ? injectEnvIntoLastUser(options.messages, envBlock)
       : options.messages;
     const taskKind = classifyTaskKind(messagesForRun);
-    const { modelId, autoTier } = resolveEffectiveModelId(
+    const { modelId, autoTier, jevRoute } = await resolveEffectiveModelId(
       deps.getModelId(),
       messagesForRun,
       deps.getKeys(),
       deps.getModelTiers?.() ?? {},
       taskKind,
+      deps.getJevRouting,
+      options.messages,
     );
     const result = await runAgentStream({
       keys: deps.getKeys(),
@@ -184,7 +248,14 @@ export function createContextAwareTransport(deps: Deps) {
         : undefined,
       onCompact: deps.onCompact,
       onFinishMeta: deps.onFinishMeta
-        ? (info) => deps.onFinishMeta?.({ ...info, modelId, autoTier, taskKind })
+        ? (info) =>
+            deps.onFinishMeta?.({
+              ...info,
+              modelId,
+              autoTier,
+              jevRoute,
+              taskKind,
+            })
         : undefined,
       ...deps.getLocalProviderConfig?.(),
       customEndpointKeys: deps.getCustomEndpointKeys?.(),

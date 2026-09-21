@@ -13,12 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
+  createNineRouterEndpoint,
   DEFAULT_MODEL_ID,
   getAutocompleteEligibleModels,
   getCompatModelInfo,
   getModel,
   getProvider,
   isCompatModelId,
+  isNineRouterEndpoint,
   isKnownModelId,
   MODELS,
   type ModelId,
@@ -29,14 +31,18 @@ import {
   STT_PROVIDER_LABELS,
   type SttProvider,
 } from "@/features/ai-companion/ai/config";
+import { detectClaudeCli } from "@/features/ai-companion/ai/lib/claudeCli";
 import {
   type CustomEndpointKeys,
   clearCustomEndpointKey,
   clearKey,
+  clearTypesafeApiKey,
   getAllCustomEndpointKeys,
   getAllKeys,
+  getTypesafeApiKey,
   setCustomEndpointKey,
   setKey,
+  setTypesafeApiKey,
 } from "@/features/ai-companion/ai/lib/keyring";
 import {
   CATALOG_PROVIDERS,
@@ -46,12 +52,12 @@ import {
   useModelCatalogStore,
   useModelIdSuggestions,
 } from "@/features/ai-companion/ai/lib/modelDiscovery";
-import { detectClaudeCli } from "@/features/ai-companion/ai/lib/claudeCli";
 import {
   getCodexAuth,
   getPreferredAuthMethod,
   setPreferredAuthMethod,
 } from "@/features/ai-companion/ai/lib/oauth/codexAuth";
+import type { JevRoutingMode } from "@/features/ai-companion/ai/lib/taskRouting";
 import { useAiChatStore } from "@/features/ai-companion/ai/store/aiChatStore";
 import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import {
@@ -64,6 +70,7 @@ import {
   setDefaultModel,
   setFavoriteModelIds,
   setGroqSttModel,
+  setJevRoutingMode,
   setLmstudioBaseURL,
   setLmstudioModelId,
   setMlxBaseURL,
@@ -159,6 +166,7 @@ export function ModelsSection() {
   const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
   const [claudeCliDetected, setClaudeCliDetected] = useState(false);
   const [anthropicUsesClaudeCli, setAnthropicUsesClaudeCli] = useState(true);
+  const [modelTab, setModelTab] = useState("providers");
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -231,6 +239,16 @@ export function ModelsSection() {
     await setCustomEndpoints([...customEndpoints, ep]);
   };
 
+  const configureNineRouter = async () => {
+    if (!customEndpoints.some(isNineRouterEndpoint)) {
+      await setCustomEndpoints([
+        ...customEndpoints,
+        createNineRouterEndpoint(crypto.randomUUID().slice(0, 8)),
+      ]);
+    }
+    setModelTab("providers");
+  };
+
   const updateCustomEndpoint = async (
     id: string,
     patch: Partial<CustomEndpoint>,
@@ -276,6 +294,15 @@ export function ModelsSection() {
 
     await setCustomEndpoints(remaining);
   };
+
+  const removeNineRouter = async () => {
+    const endpoint = customEndpoints.find(isNineRouterEndpoint);
+    if (endpoint) await removeCustomEndpoint(endpoint.id);
+  };
+
+  const nineRouterConnected = customEndpoints.some(
+    (endpoint) => isNineRouterEndpoint(endpoint) && !!endpoint.modelId.trim(),
+  );
 
   const localConfig = (id: ProviderId): LocalConfig | null => {
     switch (id) {
@@ -428,6 +455,8 @@ export function ModelsSection() {
         customEndpoints={customEndpoints}
       />
 
+      <JevRoutingBlock />
+
       {/* Model notes: not pulling its weight right now, mostly showing
           auto-picked models the person never configured. Disabled rather
           than deleted, ModelNotesBlock/ModelNoteRow below still work if we
@@ -435,7 +464,11 @@ export function ModelsSection() {
 
       <VoiceBlock keys={keys} />
 
-      <Tabs defaultValue="providers" className="flex flex-col gap-3">
+      <Tabs
+        value={modelTab}
+        onValueChange={setModelTab}
+        className="flex flex-col gap-3"
+      >
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="providers">Providers</TabsTrigger>
@@ -535,6 +568,9 @@ export function ModelsSection() {
             codexConnected={codexConnected}
             claudeCliDetected={claudeCliDetected}
             claudeCliEnabled={anthropicUsesClaudeCli}
+            nineRouterConnected={nineRouterConnected}
+            onConfigureNineRouter={configureNineRouter}
+            onRemoveNineRouter={removeNineRouter}
             onLoggedIn={refreshKeys}
           />
         </TabsContent>
@@ -623,6 +659,85 @@ function ProviderMenuItem({
       <ProviderIcon provider={provider.id} size={13} />
       <span>{provider.label}</span>
     </DropdownMenuItem>
+  );
+}
+
+function JevRoutingBlock() {
+  const mode = usePreferencesStore((s) => s.jevRoutingMode);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [hasKey, setHasKey] = useState(false);
+
+  useEffect(() => {
+    void getTypesafeApiKey().then((key) => setHasKey(!!key));
+  }, []);
+
+  const saveKey = async () => {
+    await setTypesafeApiKey(keyDraft);
+    setKeyDraft("");
+    setHasKey(true);
+    await emitKeysChanged();
+  };
+
+  const clearKey = async () => {
+    await clearTypesafeApiKey();
+    setHasKey(false);
+    await emitKeysChanged();
+    if (mode !== "off") await setJevRoutingMode("off");
+  };
+
+  return (
+    <section className="rounded-xl border border-border/70 bg-card/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-medium">Jev-assisted Auto</h3>
+          <p className="mt-1 max-w-2xl text-[12px] text-muted-foreground">
+            Sends a compact task-routing decision to TypeSafe AI. Manual model
+            selection always stays local; Auto falls back locally on any
+            unavailable or low-confidence decision.
+          </p>
+        </div>
+        <select
+          aria-label="Jev-assisted Auto mode"
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+          disabled={!hasKey}
+          value={mode}
+          onChange={(event) =>
+            void setJevRoutingMode(event.target.value as JevRoutingMode)
+          }
+        >
+          <option value="off">Off</option>
+          <option value="shadow">Compare only</option>
+          <option value="active">Use Jev</option>
+        </select>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {hasKey ? (
+          <>
+            <Badge variant="secondary">TypeSafe key stored in Keychain</Badge>
+            <Button size="sm" variant="outline" onClick={() => void clearKey()}>
+              Remove key
+            </Button>
+          </>
+        ) : (
+          <>
+            <Input
+              className="h-8 max-w-sm text-xs"
+              type="password"
+              value={keyDraft}
+              onChange={(event) => setKeyDraft(event.target.value)}
+              placeholder="TypeSafe API key"
+            />
+            <Button
+              size="sm"
+              disabled={!keyDraft.trim()}
+              onClick={() => void saveKey()}
+            >
+              Save key
+            </Button>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 

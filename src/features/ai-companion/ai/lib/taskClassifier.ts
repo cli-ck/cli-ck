@@ -47,7 +47,7 @@ export function findLastUserMessage(
   return null;
 }
 
-function lastUserText(messages: readonly UIMessage[]): string {
+export function lastUserText(messages: readonly UIMessage[]): string {
   const found = findLastUserMessage(messages);
   if (!found) return "";
   return (found.message.parts as readonly MessagePart[])
@@ -71,7 +71,9 @@ export function lastMessageHasImage(messages: readonly UIMessage[]): boolean {
 /** A recent stretch of sustained tool-call turns is a strong signal the
  *  conversation is mid substantive work, even if the latest message is short
  *  ("now do the same for utils.ts"). */
-function hasSustainedToolActivity(messages: readonly UIMessage[]): boolean {
+export function hasSustainedToolActivity(
+  messages: readonly UIMessage[],
+): boolean {
   const recent = messages.slice(-RECENT_ACTIVITY_WINDOW);
   const toolTurns = recent.filter((m) =>
     (m.parts as readonly MessagePart[]).some((p) => p.type.startsWith("tool-")),

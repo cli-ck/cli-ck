@@ -1,10 +1,12 @@
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
+  createNineRouterEndpoint,
   DEFAULT_STT_PROVIDER,
   endpointIdFromCompatModel,
   getModelContextLimit,
   isCompatModelId,
+  isNineRouterEndpoint,
   migrateLegacyCompatEndpoint,
   migrateLegacySttProvider,
   modelKeepsReasoning,
@@ -30,6 +32,19 @@ describe("compat model id helpers", () => {
   it("treats static model ids as non-compat", () => {
     expect(isCompatModelId("gpt-5.4-mini")).toBe(false);
     expect(endpointIdFromCompatModel("gpt-5.4-mini")).toBe("");
+  });
+});
+
+describe("9Router endpoint preset", () => {
+  it("creates a detectable local OpenAI-compatible endpoint", () => {
+    const preset = createNineRouterEndpoint("9router1");
+    expect(preset).toMatchObject({
+      id: "9router1",
+      name: "9Router",
+      baseURL: "http://127.0.0.1:20128/v1",
+      preset: "9router",
+    });
+    expect(isNineRouterEndpoint(preset)).toBe(true);
   });
 });
 

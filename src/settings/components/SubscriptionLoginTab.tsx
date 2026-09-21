@@ -30,6 +30,7 @@ type ConnectionState = {
   codexConnected: boolean;
   claudeCliDetected: boolean;
   claudeCliEnabled: boolean;
+  nineRouterConnected: boolean;
 };
 
 type SubscriptionProvider = {
@@ -43,12 +44,17 @@ type SubscriptionProvider = {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   isConnected: (state: ConnectionState) => boolean;
+  actionLabel?: string;
   /** Gates the login button — Claude needs the CLI found on PATH first,
    *  everything else can always attempt to log in. */
   canLogin?: (state: ConnectionState) => boolean;
 };
 
-const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProvider[] = [
+function subscriptionProviders(
+  configureNineRouter: () => Promise<void>,
+  removeNineRouter: () => Promise<void>,
+): readonly SubscriptionProvider[] {
+  return [
   {
     id: "openrouter",
     label: "OpenRouter",
@@ -75,19 +81,36 @@ const SUBSCRIPTION_PROVIDERS: readonly SubscriptionProvider[] = [
     isConnected: (s) => s.claudeCliDetected && s.claudeCliEnabled,
     canLogin: (s) => s.claudeCliDetected,
   },
+  {
+    id: "openai-compatible",
+    label: "9Router",
+    description:
+      "Adds your local 9Router endpoint. Then choose a model and paste its dashboard API key under Providers.",
+    login: configureNineRouter,
+    logout: removeNineRouter,
+    isConnected: (s) => s.nineRouterConnected,
+    actionLabel: "Configure 9Router",
+  },
 ];
+}
 
 export function SubscriptionLoginTab({
   keys,
   codexConnected,
   claudeCliDetected,
   claudeCliEnabled,
+  nineRouterConnected,
+  onConfigureNineRouter,
+  onRemoveNineRouter,
   onLoggedIn,
 }: {
   keys: Record<ProviderId, string | null>;
   codexConnected: boolean;
   claudeCliDetected: boolean;
   claudeCliEnabled: boolean;
+  nineRouterConnected: boolean;
+  onConfigureNineRouter: () => Promise<void>;
+  onRemoveNineRouter: () => Promise<void>;
   onLoggedIn: () => void;
 }) {
   const [selectedId, setSelectedId] = useState<ProviderId | null>(null);
@@ -99,8 +122,13 @@ export function SubscriptionLoginTab({
     codexConnected,
     claudeCliDetected,
     claudeCliEnabled,
+    nineRouterConnected,
   };
-  const selected = SUBSCRIPTION_PROVIDERS.find((p) => p.id === selectedId);
+  const providers = subscriptionProviders(
+    onConfigureNineRouter,
+    onRemoveNineRouter,
+  );
+  const selected = providers.find((p) => p.id === selectedId);
   const connected = !!selected && selected.isConnected(state);
   const canLogin = !!selected && (selected.canLogin?.(state) ?? true);
 
@@ -161,7 +189,7 @@ export function SubscriptionLoginTab({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-56 p-1">
-          {SUBSCRIPTION_PROVIDERS.map((p) => (
+          {providers.map((p) => (
             <DropdownMenuItem
               key={p.id}
               onSelect={() => {
@@ -215,7 +243,7 @@ export function SubscriptionLoginTab({
               {status === "connecting" ? <Spinner className="size-3" /> : null}
               {selected.id === "anthropic"
                 ? "Connect Claude Code"
-                : `Log in with ${selected.label}`}
+                : (selected.actionLabel ?? `Log in with ${selected.label}`)}
             </Button>
           ) : (
             <div className="flex items-center gap-2">
