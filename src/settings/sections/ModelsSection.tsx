@@ -13,12 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
+  createNineRouterEndpoint,
   DEFAULT_MODEL_ID,
   getAutocompleteEligibleModels,
   getCompatModelInfo,
   getModel,
   getProvider,
   isCompatModelId,
+  isNineRouterEndpoint,
   isKnownModelId,
   MODELS,
   type ModelId,
@@ -164,6 +166,7 @@ export function ModelsSection() {
   const [openaiUsesLogin, setOpenaiUsesLogin] = useState(true);
   const [claudeCliDetected, setClaudeCliDetected] = useState(false);
   const [anthropicUsesClaudeCli, setAnthropicUsesClaudeCli] = useState(true);
+  const [modelTab, setModelTab] = useState("providers");
 
   const defaultModel = usePreferencesStore((s) => s.defaultModelId);
   const lmstudioBaseURL = usePreferencesStore((s) => s.lmstudioBaseURL);
@@ -236,6 +239,16 @@ export function ModelsSection() {
     await setCustomEndpoints([...customEndpoints, ep]);
   };
 
+  const configureNineRouter = async () => {
+    if (!customEndpoints.some(isNineRouterEndpoint)) {
+      await setCustomEndpoints([
+        ...customEndpoints,
+        createNineRouterEndpoint(crypto.randomUUID().slice(0, 8)),
+      ]);
+    }
+    setModelTab("providers");
+  };
+
   const updateCustomEndpoint = async (
     id: string,
     patch: Partial<CustomEndpoint>,
@@ -281,6 +294,15 @@ export function ModelsSection() {
 
     await setCustomEndpoints(remaining);
   };
+
+  const removeNineRouter = async () => {
+    const endpoint = customEndpoints.find(isNineRouterEndpoint);
+    if (endpoint) await removeCustomEndpoint(endpoint.id);
+  };
+
+  const nineRouterConnected = customEndpoints.some(
+    (endpoint) => isNineRouterEndpoint(endpoint) && !!endpoint.modelId.trim(),
+  );
 
   const localConfig = (id: ProviderId): LocalConfig | null => {
     switch (id) {
@@ -442,7 +464,11 @@ export function ModelsSection() {
 
       <VoiceBlock keys={keys} />
 
-      <Tabs defaultValue="providers" className="flex flex-col gap-3">
+      <Tabs
+        value={modelTab}
+        onValueChange={setModelTab}
+        className="flex flex-col gap-3"
+      >
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="providers">Providers</TabsTrigger>
@@ -542,6 +568,9 @@ export function ModelsSection() {
             codexConnected={codexConnected}
             claudeCliDetected={claudeCliDetected}
             claudeCliEnabled={anthropicUsesClaudeCli}
+            nineRouterConnected={nineRouterConnected}
+            onConfigureNineRouter={configureNineRouter}
+            onRemoveNineRouter={removeNineRouter}
             onLoggedIn={refreshKeys}
           />
         </TabsContent>

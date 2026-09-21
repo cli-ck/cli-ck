@@ -127,7 +127,25 @@ export type CustomEndpoint = {
   baseURL: string;
   modelId: string;
   contextLimit: number;
+  preset?: "9router";
 };
+
+export const NINE_ROUTER_DEFAULT_BASE_URL = "http://127.0.0.1:20128/v1";
+
+export function createNineRouterEndpoint(id: string): CustomEndpoint {
+  return {
+    id,
+    name: "9Router",
+    baseURL: NINE_ROUTER_DEFAULT_BASE_URL,
+    modelId: "",
+    contextLimit: 128_000,
+    preset: "9router",
+  };
+}
+
+export function isNineRouterEndpoint(endpoint: CustomEndpoint): boolean {
+  return endpoint.preset === "9router";
+}
 
 const COMPAT_MODEL_PREFIX = "compat-";
 
