@@ -5,9 +5,66 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag, for example v0.3.0-beta"
+        required: true
+        type: string
 
 jobs:
+  release-metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      channel: ${{ steps.release.outputs.channel }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - id: release
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha-[1-9][0-9]*$ ]]; then
+            CHANNEL=alpha
+            PRERELEASE=true
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+            CHANNEL=beta
+            PRERELEASE=true
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CHANNEL=stable
+            PRERELEASE=false
+          else
+            echo "Invalid release tag: $TAG" >&2
+            echo "Use vX.Y.Z-alpha-N, vX.Y.Z-beta, or vX.Y.Z." >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+
+      - name: Verify application version matches release tag
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(jq -r '.version' package.json)
+          TAURI_VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          CARGO_VERSION=$(sed -n '/^\[package\]/,/^\[/ s/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml)
+
+          test "$PACKAGE_VERSION" = "$VERSION"
+          test "$TAURI_VERSION" = "$VERSION"
+          test "$CARGO_VERSION" = "$VERSION"
+
   publish-tauri:
+    needs: release-metadata
+    if: needs.release-metadata.outputs.channel != 'alpha'
     permissions:
       contents: write
     strategy:
@@ -34,6 +91,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-metadata.outputs.tag }}
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -125,27 +184,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "cli-ck ${{ github.ref_name }}"
-          releaseBody: "See the assets to download and install. Auto-update is built in."
+          tagName: ${{ needs.release-metadata.outputs.tag }}
+          releaseName: "cli-ck ${{ needs.release-metadata.outputs.tag }}"
+          releaseBody: "See the assets to download and install. Stable releases include auto-updates."
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ needs.release-metadata.outputs.prerelease }}
           args: ${{ matrix.args }}
 
       - name: Zip release binary (Windows)
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           Compress-Archive -Path src-tauri/target/release/cli-ck.exe -DestinationPath src-tauri/target/release/cli-ck_windows_x64.zip
-          gh release upload ${{ github.ref_name }} src-tauri/target/release/cli-ck_windows_x64.zip --clobber --repo ${{ github.repository }}
+          gh release upload ${{ needs.release-metadata.outputs.tag }} src-tauri/target/release/cli-ck_windows_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Zip release binary (Linux)
-        if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           zip -j src-tauri/target/release/cli-ck_linux_x64.zip src-tauri/target/release/cli-ck
-          gh release upload ${{ github.ref_name }} src-tauri/target/release/cli-ck_linux_x64.zip --clobber --repo ${{ github.repository }}
+          gh release upload ${{ needs.release-metadata.outputs.tag }} src-tauri/target/release/cli-ck_linux_x64.zip --clobber --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -161,7 +220,7 @@ jobs:
       # patch-appimage-updater job after all matrix legs finish, so a parallel
       # macOS/Windows upload cannot clobber the combined latest.json.
       - name: Fix AppImage wayland libs and re-sign
-        if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.platform == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -210,7 +269,7 @@ jobs:
 
           cp "$WORK/$BASENAME" "$APPIMAGE"
 
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ needs.release-metadata.outputs.tag }}"
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             rm -f "$APPIMAGE.sig"
             pnpm tauri signer sign "$APPIMAGE"
@@ -228,8 +287,8 @@ jobs:
   # macOS/Windows upload. Both linux keys point at the AppImage and both carry
   # a signature, so both are patched.
   patch-appimage-updater:
-    needs: publish-tauri
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [release-metadata, publish-tauri]
+    if: needs.release-metadata.outputs.channel != 'alpha'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -241,7 +300,7 @@ jobs:
         if: env.TAURI_SIGNING_PRIVATE_KEY != ''
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ needs.release-metadata.outputs.tag }}"
 
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
             --pattern "latest.json" --pattern "*_amd64.AppImage.sig" --clobber
@@ -262,11 +321,13 @@ jobs:
           gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"
 
   publish-npm:
-    needs: publish-tauri
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [release-metadata, publish-tauri]
+    if: needs.release-metadata.outputs.channel == 'stable'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-metadata.outputs.tag }}
 
       - uses: pnpm/action-setup@v6
 
@@ -277,7 +338,7 @@ jobs:
 
       - name: Set dynamic version in wrapper package.json
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ needs.release-metadata.outputs.tag }}"
           VERSION="${TAG#v}"
           echo "Setting version to $VERSION"
           jq --arg version "$VERSION" '.version = $version' npm-wrapper/package.json > npm-wrapper/package.json.tmp
@@ -293,7 +354,22 @@ jobs:
             echo "Version $PKG_VERSION of $PKG_NAME is already published. Skipping publish."
           else
             echo "Publishing $PKG_NAME@$PKG_VERSION to NPM..."
-            npm publish --access public
+            npm publish --access public --tag latest
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-release:
+    needs: [release-metadata, patch-appimage-updater]
+    if: needs.release-metadata.outputs.channel != 'alpha'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish completed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-metadata.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
