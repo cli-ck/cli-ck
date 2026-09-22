@@ -64,7 +64,6 @@ jobs:
 
   publish-tauri:
     needs: release-metadata
-    if: needs.release-metadata.outputs.channel != 'alpha'
     permissions:
       contents: write
     strategy:
@@ -288,7 +287,6 @@ jobs:
   # a signature, so both are patched.
   patch-appimage-updater:
     needs: [release-metadata, publish-tauri]
-    if: needs.release-metadata.outputs.channel != 'alpha'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -361,7 +359,6 @@ jobs:
 
   publish-release:
     needs: [release-metadata, patch-appimage-updater]
-    if: needs.release-metadata.outputs.channel != 'alpha'
     runs-on: ubuntu-latest
     permissions:
       contents: write
