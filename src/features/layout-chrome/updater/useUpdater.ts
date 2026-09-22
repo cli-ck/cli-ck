@@ -1,19 +1,26 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { arch, platform } from "@tauri-apps/plugin-os";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useCallback, useEffect, useState } from "react";
 import { IS_LINUX } from "@/lib/platform";
+import { isNewer, selectBetaRelease, type GithubRelease } from "./releases";
 
 const LAST_CHECK_KEY = "cli-ck:updater:last-check";
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const GITHUB_LATEST_RELEASE =
   "https://api.github.com/repos/cli-ck/cli-ck/releases/latest";
+const GITHUB_RELEASES =
+  "https://api.github.com/repos/cli-ck/cli-ck/releases?per_page=100";
+
+export type UpdateChannel = "stable" | "beta";
 
 export interface ManualUpdateInfo {
   version: string;
   currentVersion: string;
   body: string;
   releaseUrl: string;
+  downloadUrl: string;
 }
 
 export type UpdaterStatus =
@@ -25,26 +32,6 @@ export type UpdaterStatus =
   | { kind: "downloading"; downloaded: number; contentLength: number | null }
   | { kind: "ready" }
   | { kind: "error"; message: string };
-
-function parseVersion(v: string): number[] {
-  return v
-    .replace(/^v/, "")
-    .split("-")[0]
-    .split(".")
-    .map((p) => Number.parseInt(p, 10) || 0);
-}
-
-function isNewer(remote: string, current: string): boolean {
-  const a = parseVersion(remote);
-  const b = parseVersion(current);
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    const x = a[i] ?? 0;
-    const y = b[i] ?? 0;
-    if (x !== y) return x > y;
-  }
-  return false;
-}
 
 async function checkLinuxRelease(): Promise<ManualUpdateInfo | null> {
   const [current, res] = await Promise.all([
@@ -68,7 +55,27 @@ async function checkLinuxRelease(): Promise<ManualUpdateInfo | null> {
     currentVersion: current,
     body: data.body ?? "",
     releaseUrl: data.html_url,
+    downloadUrl: data.html_url,
   };
+}
+
+async function checkBetaRelease(): Promise<ManualUpdateInfo | null> {
+  const [current, res] = await Promise.all([
+    getVersion(),
+    fetch(GITHUB_RELEASES, {
+      headers: { Accept: "application/vnd.github+json" },
+    }),
+  ]);
+  if (!res.ok) {
+    throw new Error(`GitHub API ${res.status}`);
+  }
+  const release = selectBetaRelease(
+    (await res.json()) as GithubRelease[],
+    current,
+    platform(),
+    arch(),
+  );
+  return release ? { ...release, currentVersion: current } : null;
 }
 
 interface Options {
@@ -79,39 +86,56 @@ interface Options {
 interface HookOptions {
   /** When false, the hook does not run an automatic check on mount. */
   autoCheck?: boolean;
+  channel?: UpdateChannel;
 }
 
-export function useUpdater({ autoCheck = true }: HookOptions = {}) {
+export function useUpdater({
+  autoCheck = true,
+  channel = "stable",
+}: HookOptions = {}) {
   const [status, setStatus] = useState<UpdaterStatus>({ kind: "idle" });
 
-  const runCheck = useCallback(async ({ manual }: Options = {}) => {
-    if (!manual) {
-      const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
-      if (Date.now() - last < CHECK_INTERVAL_MS) return;
-    }
-    setStatus({ kind: "checking" });
-    try {
-      if (IS_LINUX) {
-        const info = await checkLinuxRelease();
-        if (info) {
-          setStatus({ kind: "manual-available", info });
+  const runCheck = useCallback(
+    async ({ manual }: Options = {}) => {
+      if (!manual) {
+        const last = Number(localStorage.getItem(LAST_CHECK_KEY) ?? 0);
+        if (Date.now() - last < CHECK_INTERVAL_MS) return;
+      }
+      setStatus({ kind: "checking" });
+      try {
+        if (channel === "beta") {
+          const info = await checkBetaRelease();
+          if (info) {
+            setStatus({ kind: "manual-available", info });
+          } else {
+            localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+            setStatus({ kind: "uptodate" });
+          }
+          return;
+        }
+        if (IS_LINUX) {
+          const info = await checkLinuxRelease();
+          if (info) {
+            setStatus({ kind: "manual-available", info });
+          } else {
+            localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+            setStatus({ kind: "uptodate" });
+          }
+          return;
+        }
+        const update = await check();
+        if (update) {
+          setStatus({ kind: "available", update });
         } else {
           localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
           setStatus({ kind: "uptodate" });
         }
-        return;
+      } catch (err) {
+        setStatus({ kind: "error", message: String(err) });
       }
-      const update = await check();
-      if (update) {
-        setStatus({ kind: "available", update });
-      } else {
-        localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
-        setStatus({ kind: "uptodate" });
-      }
-    } catch (err) {
-      setStatus({ kind: "error", message: String(err) });
-    }
-  }, []);
+    },
+    [channel],
+  );
 
   const install = useCallback(async () => {
     if (status.kind !== "available") return;

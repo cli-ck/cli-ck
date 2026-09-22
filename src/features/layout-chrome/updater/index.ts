@@ -1,2 +1,2 @@
 export { ChromeUpdaterDialog } from "./ChromeUpdaterDialog";
-export { useUpdater } from "./useUpdater";
+export { type UpdateChannel, useUpdater } from "./useUpdater";

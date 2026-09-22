@@ -21,6 +21,7 @@ import {
   TERMINAL_FONT_SIZES,
   TERMINAL_SCROLLBACK_PRESETS,
   setAgentNotifications,
+  setUpdateChannel,
   setAutostart,
   setEditorWordWrap,
   setEditorAutoSave,
@@ -110,6 +111,7 @@ export function GeneralSection() {
   const terminalScrollback = usePreferencesStore((s) => s.terminalScrollback);
   const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
   const agentNotifications = usePreferencesStore((s) => s.agentNotifications);
+  const updateChannel = usePreferencesStore((s) => s.updateChannel);
 
   useEffect(() => {
     let alive = true;
@@ -469,6 +471,21 @@ export function GeneralSection() {
           </SettingRow>
         </div>
       </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Updates</Label>
+        <SettingRow
+          title="Developer mode"
+          description="Show beta downloads. Stable automatic updates stay enabled for normal mode."
+        >
+          <Switch
+            checked={updateChannel === "beta"}
+            onCheckedChange={(enabled) =>
+              void setUpdateChannel(enabled ? "beta" : "stable")
+            }
+          />
+        </SettingRow>
+      </div>
     </div>
   );
 }
@@ -575,4 +592,3 @@ function AutoSaveDelayInput({
     </SettingRow>
   );
 }
-
