@@ -13,9 +13,10 @@ git tag v0.3.0-alpha-1
 git push origin v0.3.0-alpha-1
 ```
 
-The next alpha is `v0.3.0-alpha-2`. Alpha tags validate their format and
-version, but do not build or publish downloadable artifacts, npm packages,
-updater metadata, or Nix updates.
+The next alpha is `v0.3.0-alpha-2`. The workflow builds all desktop
+installers and publishes an invited-customer GitHub pre-release. Alpha tags do
+not publish to npm or Nix, and the built-in updater remains on the last stable
+release.
 
 ## Beta
 
