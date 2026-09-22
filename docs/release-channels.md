@@ -4,6 +4,10 @@ Every release starts with one or two finished features and a passing CI run.
 The tag is the release instruction. Its version must match `package.json`,
 `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` exactly.
 
+Before creating any alpha, beta, or stable tag, add a user-facing release note
+at `docs/release-notes/vX.Y.Z*.md`. The workflow refuses to publish without
+that file and uses it as the GitHub release description.
+
 ## Alpha
 
 Use numbered alpha tags while the feature work is internal:

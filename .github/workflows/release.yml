@@ -82,6 +82,15 @@ jobs:
           test "$TAURI_VERSION" = "$VERSION"
           test "$CARGO_VERSION" = "$VERSION"
 
+      - name: Verify release notes exist
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          RELEASE_NOTES="docs/release-notes/$TAG.md"
+          test -s "$RELEASE_NOTES"
+          grep -q '[[:alnum:]]' "$RELEASE_NOTES"
+
   publish-tauri:
     needs: release-metadata
     permissions:
@@ -214,7 +223,7 @@ jobs:
         with:
           tagName: ${{ needs.release-metadata.outputs.tag }}
           releaseName: "cli-ck ${{ needs.release-metadata.outputs.tag }}"
-          releaseBody: "See the assets to download and install. Stable releases include auto-updates."
+          releaseBody: "Draft release. Versioned release notes are added when publishing completes."
           releaseDraft: true
           prerelease: ${{ needs.release-metadata.outputs.prerelease }}
           args: ${{ matrix.args }}
@@ -392,10 +401,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-metadata.outputs.tag }}
+
       - name: Publish completed release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release-metadata.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" \
+            --notes-file "docs/release-notes/$TAG.md" \
+            --draft=false \
+            --repo "$GITHUB_REPOSITORY"
