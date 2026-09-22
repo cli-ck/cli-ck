@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useUpdater } from "@/features/layout-chrome/updater";
+import { usePreferencesStore } from "@/features/layout-chrome/settings/preferences";
 import { GithubIcon, Globe02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getVersion } from "@tauri-apps/api/app";
@@ -29,7 +30,11 @@ export function AboutSection() {
   const [version, setVersion] = useState("");
   const [build, setBuild] = useState("");
   const [linkError, setLinkError] = useState("");
-  const { status, check, install } = useUpdater({ autoCheck: false });
+  const updateChannel = usePreferencesStore((s) => s.updateChannel);
+  const { status, check, install } = useUpdater({
+    autoCheck: false,
+    channel: updateChannel,
+  });
   const checking = status.kind === "checking";
   const downloading = status.kind === "downloading";
   const available = status.kind === "available";
@@ -49,18 +54,22 @@ export function AboutSection() {
               : available
                 ? `Install v${status.update.version}`
                 : manualAvailable
-                  ? `Update to v${status.info.version}`
-                  : "Check for updates";
-  const onUpdateClick = () => {
-    if (available) void install();
-    else void check({ manual: true });
-  };
+                  ? `Download v${status.info.version}`
+                  : updateChannel === "beta"
+                    ? "Check for beta updates"
+                    : "Check for updates";
 
   const openExternal = (url: string) => {
     setLinkError("");
     void openUrl(url).catch((err: unknown) => {
       setLinkError(err instanceof Error ? err.message : String(err));
     });
+  };
+
+  const onUpdateClick = () => {
+    if (available) void install();
+    else if (manualAvailable) openExternal(status.info.downloadUrl);
+    else void check({ manual: true });
   };
 
   useEffect(() => {
