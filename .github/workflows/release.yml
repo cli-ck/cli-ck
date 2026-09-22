@@ -19,6 +19,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       channel: ${{ steps.release.outputs.channel }}
       prerelease: ${{ steps.release.outputs.prerelease }}
+      windows_msi_version: ${{ steps.release.outputs.windows_msi_version }}
     steps:
       - id: release
         env:
@@ -40,10 +41,29 @@ jobs:
             exit 1
           fi
 
+          VERSION=${TAG#v}
+          case "$CHANNEL" in
+            alpha)
+              ALPHA_NUMBER=${VERSION##*-}
+              if (( ALPHA_NUMBER > 65534 )); then
+                echo "Alpha number must not exceed 65534 for Windows MSI builds." >&2
+                exit 1
+              fi
+              WINDOWS_MSI_VERSION="${VERSION/-alpha-/-}"
+              ;;
+            beta)
+              WINDOWS_MSI_VERSION="${VERSION%-beta}-65535"
+              ;;
+            stable)
+              WINDOWS_MSI_VERSION="$VERSION"
+              ;;
+          esac
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "windows_msi_version=$WINDOWS_MSI_VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -176,6 +196,15 @@ jobs:
         run: |
           echo "No tauri signing key found, disabling updater artifacts creation"
           jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+
+      - name: Map prerelease version for Windows MSI
+        if: matrix.platform == 'windows-latest' && needs.release-metadata.outputs.channel != 'stable'
+        env:
+          WINDOWS_MSI_VERSION: ${{ needs.release-metadata.outputs.windows_msi_version }}
+        shell: bash
+        run: |
+          jq --arg version "$WINDOWS_MSI_VERSION" '.version = $version' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
           mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
 
       - id: tauri
