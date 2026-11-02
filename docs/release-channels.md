@@ -24,12 +24,12 @@ release.
 
 ## Beta
 
-When the feature is ready for invited beta developers and testers, tag the
-same release line as `v0.3.0-beta`:
+When the feature is ready for invited beta developers and testers, use numbered
+beta tags such as `v0.3.0-beta-1`:
 
 ```sh
-git tag v0.3.0-beta
-git push origin v0.3.0-beta
+git tag v0.3.0-beta-1
+git push origin v0.3.0-beta-1
 ```
 
 The workflow builds all desktop installers and publishes one GitHub

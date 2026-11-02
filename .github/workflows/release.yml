@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag, for example v0.3.0-beta"
+        description: "Existing release tag, for example v0.3.0-beta-1"
         required: true
         type: string
 
@@ -20,6 +20,7 @@ jobs:
       channel: ${{ steps.release.outputs.channel }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       windows_msi_version: ${{ steps.release.outputs.windows_msi_version }}
+      bundle_version: ${{ steps.release.outputs.bundle_version }}
     steps:
       - id: release
         env:
@@ -29,7 +30,7 @@ jobs:
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha-[1-9][0-9]*$ ]]; then
             CHANNEL=alpha
             PRERELEASE=true
-          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta(-[1-9][0-9]*)?$ ]]; then
             CHANNEL=beta
             PRERELEASE=true
           elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -37,7 +38,7 @@ jobs:
             PRERELEASE=false
           else
             echo "Invalid release tag: $TAG" >&2
-            echo "Use vX.Y.Z-alpha-N, vX.Y.Z-beta, or vX.Y.Z." >&2
+            echo "Use vX.Y.Z-alpha-N, vX.Y.Z-beta-N, or vX.Y.Z." >&2
             exit 1
           fi
 
@@ -50,12 +51,22 @@ jobs:
                 exit 1
               fi
               WINDOWS_MSI_VERSION="${VERSION/-alpha-/-}"
+              BASE_VERSION="${VERSION%%-alpha-*}"
+              BUNDLE_VERSION="${BASE_VERSION}+alpha.${ALPHA_NUMBER}"
               ;;
             beta)
-              WINDOWS_MSI_VERSION="${VERSION%-beta}-65535"
+              BASE_VERSION="${VERSION%%-beta*}"
+              if [[ "$VERSION" =~ -beta-([1-9][0-9]*)$ ]]; then
+                BETA_NUMBER="${BASH_REMATCH[1]}"
+              else
+                BETA_NUMBER=65535
+              fi
+              WINDOWS_MSI_VERSION="${BASE_VERSION}-65535"
+              BUNDLE_VERSION="${BASE_VERSION}+beta.${BETA_NUMBER}"
               ;;
             stable)
               WINDOWS_MSI_VERSION="$VERSION"
+              BUNDLE_VERSION="$VERSION"
               ;;
           esac
 
@@ -64,6 +75,7 @@ jobs:
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "windows_msi_version=$WINDOWS_MSI_VERSION" >> "$GITHUB_OUTPUT"
+          echo "bundle_version=$BUNDLE_VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -91,8 +103,85 @@ jobs:
           test -s "$RELEASE_NOTES"
           grep -q '[[:alnum:]]' "$RELEASE_NOTES"
 
-  publish-tauri:
+  release-validation:
     needs: release-metadata
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-metadata.outputs.tag }}
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libssl-dev
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,llvm-tools-preview
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+          key: release-validation
+
+      - uses: taiki-e/install-action@v2.87.17
+        with:
+          tool: cargo-nextest,cargo-llvm-cov
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch verified Code Intel sidecar
+        env:
+          CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
+          CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
+        run: node scripts/fetch-code-intel-sidecar.mjs
+
+      - name: Frontend lint
+        run: pnpm lint
+
+      - name: Frontend type-check
+        run: pnpm check-types
+
+      - name: Frontend tests
+        run: pnpm test
+
+      - name: Frontend build
+        run: pnpm build
+
+      - name: Frontend size budget
+        run: pnpm size
+
+      - name: Rust check
+        working-directory: src-tauri
+        run: cargo check --all-targets --locked
+
+      - name: Rust clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo nextest run --locked
+
+      - name: Rust coverage
+        working-directory: src-tauri
+        run: cargo llvm-cov nextest --locked --lcov --output-path lcov.info
+
+  publish-tauri:
+    needs: [release-metadata, release-validation]
     permissions:
       contents: write
     strategy:
@@ -207,13 +296,17 @@ jobs:
           jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
           mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
 
-      - name: Map prerelease version for Windows MSI
-        if: matrix.platform == 'windows-latest' && needs.release-metadata.outputs.channel != 'stable'
+      - name: Map prerelease version for desktop bundle
+        if: needs.release-metadata.outputs.channel != 'stable'
         env:
-          WINDOWS_MSI_VERSION: ${{ needs.release-metadata.outputs.windows_msi_version }}
+          BUNDLE_VERSION: ${{ needs.release-metadata.outputs.bundle_version }}
         shell: bash
         run: |
-          jq --arg version "$WINDOWS_MSI_VERSION" '.version = $version' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
+          VERSION="$BUNDLE_VERSION"
+          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+            VERSION="${{ needs.release-metadata.outputs.windows_msi_version }}"
+          fi
+          jq --arg version "$VERSION" '.version = $version' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp
           mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
 
       - id: tauri
@@ -324,7 +417,7 @@ jobs:
   # macOS/Windows upload. Both linux keys point at the AppImage and both carry
   # a signature, so both are patched.
   patch-appimage-updater:
-    needs: [release-metadata, publish-tauri]
+    needs: [release-metadata, release-validation, publish-tauri]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -357,7 +450,7 @@ jobs:
           gh release upload "$TAG" latest.json --clobber --repo "$GITHUB_REPOSITORY"
 
   publish-npm:
-    needs: [release-metadata, publish-tauri]
+    needs: [release-metadata, release-validation, publish-tauri]
     if: needs.release-metadata.outputs.channel == 'stable'
     runs-on: ubuntu-latest
     steps:
