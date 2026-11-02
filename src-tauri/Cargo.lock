@@ -666,7 +666,7 @@ version = "0.3.0-alpha-1"
 dependencies = [
  "bytes",
  "chromiumoxide",
- "dirs 6.0.0",
+ "dirs 7.0.0",
  "futures-util",
  "globset",
  "grep-matcher",
