@@ -146,6 +146,37 @@ describe("hydrateTabs", () => {
     ).toEqual([]);
   });
 
+  it("skips malformed entries while preserving valid tabs", () => {
+    const input = [
+      { kind: "editor", path: "" },
+      { kind: "terminal", tree: { kind: "split", dir: "row", children: [] } },
+      { kind: "editor", path: "/a/valid.ts" },
+    ] as unknown as SerializedTab[];
+
+    const out = hydrateTabs(input, "s1", counter());
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: "editor", path: "/a/valid.ts" });
+  });
+
+  it("skips malformed split children and invalid preview URLs", () => {
+    const input = [
+      {
+        kind: "terminal",
+        tree: {
+          kind: "split",
+          dir: "row",
+          children: [{ kind: "leaf" }, { kind: "unexpected" }],
+        },
+      },
+      { kind: "preview", url: "" },
+      { kind: "markdown", path: "/a/README.md" },
+    ] as unknown as SerializedTab[];
+
+    const out = hydrateTabs(input, "s1", counter());
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: "markdown", path: "/a/README.md" });
+  });
+
   it("hydrates editor/preview/markdown as cold with derived titles", () => {
     const serialized: SerializedTab[] = [
       { kind: "editor", path: "/a/foo.ts" },
