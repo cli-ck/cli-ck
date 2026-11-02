@@ -79,6 +79,7 @@ jobs:
           tool: cargo-nextest,cargo-machete
 
       - name: Fetch verified Code Intel sidecar
+        if: github.actor != 'dependabot[bot]'
         env:
           CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
           CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
@@ -126,6 +127,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Fetch verified Code Intel sidecar
+        if: github.actor != 'dependabot[bot]'
         env:
           CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
           CODE_INTEL_TARGET: ${{ matrix.sidecar-target }}
@@ -168,6 +170,7 @@ jobs:
           tool: cargo-llvm-cov,cargo-nextest
 
       - name: Fetch verified Code Intel sidecar
+        if: github.actor != 'dependabot[bot]'
         env:
           CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
           CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
