@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/resizable";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { getLaunchDir } from "@/lib/launchDir";
+import { getLaunchDir, getLaunchOpen } from "@/lib/launchDir";
 import { usePresence } from "@/lib/usePresence";
 import { quoteShellArg } from "@/lib/shellQuote";
 import { useZoom } from "@/lib/useZoom";
@@ -1031,6 +1031,12 @@ export default function App() {
     },
     [openFileTab],
   );
+
+  useEffect(() => {
+    const target = getLaunchOpen();
+    if (!target) return;
+    openContentHit(target.path, target.line ?? 1);
+  }, [openContentHit]);
 
   const insertHistoryCommand = useMemo(
     () =>
