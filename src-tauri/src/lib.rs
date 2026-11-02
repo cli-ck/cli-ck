@@ -4,6 +4,7 @@ use modules::{
     agent, browser_automation, claude_cli, code_intel, fs, git, history, lsp, net, oauth, pty,
     secrets, shell, workspace,
 };
+use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "macos")]
@@ -19,13 +20,70 @@ pub(crate) const PREVIEW_BRIDGE_JS: &str = include_str!("scripts/preview_bridge.
 #[derive(Default)]
 struct LaunchDir(Mutex<Option<String>>);
 
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct LaunchOpen {
+    pub path: String,
+    pub line: Option<usize>,
+}
+
+#[derive(Default)]
+struct LaunchOpenState(Mutex<Option<LaunchOpen>>);
+
 #[tauri::command]
 fn get_launch_dir(state: State<'_, LaunchDir>) -> Option<String> {
     state.0.lock().expect("LaunchDir mutex poisoned").take()
 }
 
-fn parse_launch_dir() -> Option<String> {
-    for arg in std::env::args().skip(1) {
+#[tauri::command]
+fn get_launch_open(state: State<'_, LaunchOpenState>) -> Option<LaunchOpen> {
+    state.0.lock().expect("LaunchOpen mutex poisoned").take()
+}
+
+fn parse_launch_open_from<I>(args: I) -> Option<LaunchOpen>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut args = args.into_iter().peekable();
+    while let Some(arg) = args.next() {
+        let raw = arg.strip_prefix("--open=").map(str::to_owned).or_else(|| {
+            if arg == "--open" {
+                args.next()
+            } else {
+                None
+            }
+        });
+        let Some(raw) = raw else {
+            continue;
+        };
+        let raw = raw.trim();
+        if raw.is_empty() {
+            continue;
+        }
+        let (path, line) = match raw.rsplit_once(':') {
+            Some((path, suffix)) if !path.is_empty() => {
+                let line = suffix.parse::<usize>().ok().filter(|n| *n > 0);
+                if line.is_some() {
+                    (path.to_string(), line)
+                } else {
+                    (raw.to_string(), None)
+                }
+            }
+            _ => (raw.to_string(), None),
+        };
+        return Some(LaunchOpen { path, line });
+    }
+    None
+}
+
+fn parse_launch_open() -> Option<LaunchOpen> {
+    parse_launch_open_from(std::env::args().skip(1))
+}
+
+fn parse_launch_dir_from<I>(args: I) -> Option<String>
+where
+    I: IntoIterator<Item = String>,
+{
+    for arg in args {
         if arg.starts_with('-') {
             continue;
         }
@@ -38,6 +96,10 @@ fn parse_launch_dir() -> Option<String> {
         return Some(crate::modules::fs::to_canon(&canon));
     }
     None
+}
+
+fn parse_launch_dir() -> Option<String> {
+    parse_launch_dir_from(std::env::args().skip(1))
 }
 
 // always_on_top is a system-wide floating level, not "above the main window"
@@ -166,6 +228,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let cli_dir = parse_launch_dir();
+    let cli_open = parse_launch_open();
     workspace::init_launch_cwd(cli_dir.as_deref());
 
     tauri::Builder::default()
@@ -243,6 +306,7 @@ pub fn run() {
             registry
         })
         .manage(LaunchDir(Mutex::new(cli_dir)))
+        .manage(LaunchOpenState(Mutex::new(cli_open)))
         .manage(lsp::LspState::default())
         .manage(code_intel::CodeIntelState::default())
         .manage(browser_automation::BrowserAutomationState::default())
@@ -318,6 +382,7 @@ pub fn run() {
             workspace::workspace_authorize,
             workspace::workspace_current_dir,
             get_launch_dir,
+            get_launch_open,
             open_settings_window,
             agent::agent_enable_claude_hooks,
             agent::agent_claude_hooks_status,
@@ -338,4 +403,51 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod launch_tests {
+    use super::{parse_launch_dir_from, parse_launch_open_from};
+
+    #[test]
+    fn parses_open_path_without_line() {
+        let result = parse_launch_open_from(["--open".to_string(), "src/main.tsx".to_string()]);
+        let open = result.expect("open request");
+        assert_eq!(open.path, "src/main.tsx");
+        assert_eq!(open.line, None);
+    }
+
+    #[test]
+    fn parses_open_path_with_line() {
+        let result = parse_launch_open_from(["--open=src/main.tsx:42".to_string()]);
+        let open = result.expect("open request");
+        assert_eq!(open.path, "src/main.tsx");
+        assert_eq!(open.line, Some(42));
+    }
+
+    #[test]
+    fn preserves_windows_drive_colon_without_numeric_suffix() {
+        let result = parse_launch_open_from(["--open=C:\\work\\main.tsx".to_string()]);
+        let open = result.expect("open request");
+        assert_eq!(open.path, "C:\\work\\main.tsx");
+        assert_eq!(open.line, None);
+    }
+
+    #[test]
+    fn ignores_invalid_open_line() {
+        let result = parse_launch_open_from(["--open=src/main.tsx:0".to_string()]);
+        let open = result.expect("open request");
+        assert_eq!(open.path, "src/main.tsx:0");
+        assert_eq!(open.line, None);
+    }
+
+    #[test]
+    fn launch_dir_ignores_open_switch_and_file_path() {
+        let result = parse_launch_dir_from([
+            "--open".to_string(),
+            "src/main.tsx".to_string(),
+            "--unknown".to_string(),
+        ]);
+        assert_eq!(result, None);
+    }
 }

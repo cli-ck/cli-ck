@@ -96,12 +96,16 @@ export const PtyTerminalPane = memo(
         <div
           className="zoom-exempt flex h-full w-full flex-col"
           style={hideStyle}
+          role="region"
+          aria-label={`Terminal pane ${leafId}`}
         >
           <div className="relative min-h-0 flex-1">
             {/* biome-ignore lint/a11y/noStaticElementInteractions: terminal surface; pointer selects command blocks */}
             <div
               ref={containerRef}
               className="absolute inset-0 z-0"
+              role="application"
+              aria-label="Interactive terminal"
               onMouseDown={(e) => {
                 downYRef.current = e.clientY;
               }}
@@ -131,6 +135,9 @@ export const PtyTerminalPane = memo(
                 if (session.blockMode === "prompt") focusLeafInput(leafId);
               }}
             />
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+              {promptReady ? "Terminal ready for input" : "Terminal command running"}
+            </div>
           </div>
         </div>
       );
@@ -141,6 +148,8 @@ export const PtyTerminalPane = memo(
         ref={containerRef}
         className="zoom-exempt h-full w-full"
         style={hideStyle}
+        role="region"
+        aria-label={`Terminal pane ${leafId}`}
       />
     );
   }),
