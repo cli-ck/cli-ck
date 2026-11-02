@@ -118,6 +118,17 @@ cli-ck install     # download + install without launching
 cli-ck uninstall   # remove the installed app and cached binaries
 ```
 
+Open a file from another tool at an optional 1-based line:
+
+```bash
+cli-ck --open src/main.tsx
+cli-ck --open src/main.tsx:42
+```
+
+The target is opened in the Click editor after startup. Paths are normalized
+at the frontend boundary, and invalid or missing line suffixes are treated as
+part of the path rather than guessed.
+
 ### Desktop Installers
 
 Latest precompiled installers (DMG, MSI, DEB, RPM, AppImage) are on the [Releases](https://github.com/cli-ck/cli-ck/releases/latest) page. cli-ck auto-updates from there. If you download these through a browser, read [Unsigned builds](#unsigned-builds) first.
