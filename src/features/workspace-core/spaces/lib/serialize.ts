@@ -26,6 +26,47 @@ export type SerializedTab =
   | { kind: "preview"; url: string }
   | { kind: "markdown"; path: string };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isSerializedNode(value: unknown): value is SerializedNode {
+  if (!isRecord(value) || (value.kind !== "leaf" && value.kind !== "split")) {
+    return false;
+  }
+  if (value.kind === "leaf") {
+    return (
+      (value.cwd === undefined || typeof value.cwd === "string") &&
+      (value.active === undefined || typeof value.active === "boolean")
+    );
+  }
+  return (
+    (value.dir === "row" || value.dir === "col") &&
+    Array.isArray(value.children) &&
+    value.children.length > 0 &&
+    value.children.every(isSerializedNode)
+  );
+}
+
+function isSerializedTab(value: unknown): value is SerializedTab {
+  if (!isRecord(value) || typeof value.kind !== "string") return false;
+  switch (value.kind) {
+    case "terminal":
+      return (
+        isSerializedNode(value.tree) &&
+        (value.blocks === undefined || typeof value.blocks === "boolean") &&
+        (value.customTitle === undefined || typeof value.customTitle === "string")
+      );
+    case "editor":
+    case "markdown":
+      return typeof value.path === "string" && value.path.length > 0;
+    case "preview":
+      return typeof value.url === "string" && value.url.length > 0;
+    default:
+      return false;
+  }
+}
+
 function basename(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts.length ? parts[parts.length - 1] : path;
@@ -224,7 +265,9 @@ export function hydrateTabs(
 ): Tab[] {
   if (!Array.isArray(serialized)) return [];
   const out: Tab[] = [];
-  for (const s of serialized) {
+  for (const candidate of serialized as unknown[]) {
+    if (!isSerializedTab(candidate)) continue;
+    const s = candidate;
     try {
       const tab = hydrateTab(s, spaceId, allocId);
       if (tab) out.push(tab);
