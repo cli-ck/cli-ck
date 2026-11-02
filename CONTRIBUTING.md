@@ -204,8 +204,9 @@ This updates the first four and regenerates `Cargo.lock`'s `cli-ck` entry via
 own version, nothing else). Then:
 
 1. Add the new version's entry to `CHANGELOG.md` (own PR or same commit).
-2. Commit as `chore(release): vX.Y.Z` and merge to `main`.
-3. Tag `main` as `vX.Y.Z` and push the tag - `.github/workflows/release.yml`
+2. Add a user-facing GitHub release note at `docs/release-notes/vX.Y.Z*.md`.
+3. Commit as `chore(release): vX.Y.Z` and merge to `main`.
+4. Tag `main` as `vX.Y.Z` and push the tag - `.github/workflows/release.yml`
    builds and publishes a **draft** GitHub Release for all four platforms;
    review it before publishing so the auto-updater doesn't pick it up
    until you're ready.
