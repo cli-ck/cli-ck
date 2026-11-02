@@ -1,6 +1,6 @@
 {
   "name": "@codecollab.co/cli-ck",
-  "version": "0.2.6",
+  "version": "0.3.0-beta",
   "description": "cli-ck — an open-source AI-native terminal emulator CLI launcher",
   "main": "bin/cli-ck.js",
   "bin": {
