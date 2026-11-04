@@ -1,8 +1,8 @@
 pub mod modules;
 
 use modules::{
-    agent, browser_automation, claude_cli, code_intel, fs, git, history, lsp, net, oauth, pty,
-    secrets, shell, workspace,
+    agent, agent_runtime, browser_automation, claude_cli, code_intel, fs, git, history, lsp, net,
+    oauth, pty, secrets, shell, workspace,
 };
 use serde::Serialize;
 use std::sync::Mutex;
@@ -292,6 +292,7 @@ pub fn run() {
             Ok(())
         })
         .manage(pty::PtyState::default())
+        .manage(agent_runtime::AgentRuntimeState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
@@ -386,6 +387,11 @@ pub fn run() {
             open_settings_window,
             agent::agent_enable_claude_hooks,
             agent::agent_claude_hooks_status,
+            agent_runtime::agent_runtime_start,
+            agent_runtime::agent_runtime_heartbeat,
+            agent_runtime::agent_runtime_adopt,
+            agent_runtime::agent_runtime_finish,
+            agent_runtime::agent_runtime_snapshot,
             secrets::secrets_get,
             secrets::secrets_set,
             secrets::secrets_delete,
