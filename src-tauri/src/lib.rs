@@ -389,6 +389,7 @@ pub fn run() {
             agent::agent_claude_hooks_status,
             agent_runtime::agent_runtime_start,
             agent_runtime::agent_runtime_heartbeat,
+            agent_runtime::agent_runtime_adopt,
             agent_runtime::agent_runtime_finish,
             agent_runtime::agent_runtime_snapshot,
             secrets::secrets_get,
