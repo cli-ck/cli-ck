@@ -85,6 +85,12 @@ jobs:
           CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
         run: node scripts/fetch-code-intel-sidecar.mjs
 
+      # Dependabot cannot access the private sidecar release token. Dependency-only
+      # validation still compiles the Rust application without bundling the sidecar.
+      - name: Exclude private sidecar from dependency validation
+        if: github.actor == 'dependabot[bot]'
+        run: node -e 'const fs=require("node:fs"); fs.appendFileSync(process.env.GITHUB_ENV, "TAURI_CONFIG="+JSON.stringify({bundle:{externalBin:[]}})+"\n");'
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --all-targets --locked
@@ -133,6 +139,10 @@ jobs:
           CODE_INTEL_TARGET: ${{ matrix.sidecar-target }}
         run: node scripts/fetch-code-intel-sidecar.mjs
 
+      - name: Exclude private sidecar from dependency validation
+        if: github.actor == 'dependabot[bot]'
+        run: node -e 'const fs=require("node:fs"); fs.appendFileSync(process.env.GITHUB_ENV, "TAURI_CONFIG="+JSON.stringify({bundle:{externalBin:[]}})+"\n");'
+
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --all-targets --locked
@@ -175,6 +185,10 @@ jobs:
           CODE_INTEL_RELEASE_TOKEN: ${{ secrets.CODE_INTEL_RELEASE_TOKEN }}
           CODE_INTEL_TARGET: x86_64-unknown-linux-gnu
         run: node scripts/fetch-code-intel-sidecar.mjs
+
+      - name: Exclude private sidecar from dependency validation
+        if: github.actor == 'dependabot[bot]'
+        run: node -e 'const fs=require("node:fs"); fs.appendFileSync(process.env.GITHUB_ENV, "TAURI_CONFIG="+JSON.stringify({bundle:{externalBin:[]}})+"\n");'
 
       - name: Generate coverage
         working-directory: src-tauri
