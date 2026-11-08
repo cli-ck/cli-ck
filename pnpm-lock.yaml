@@ -39,8 +39,8 @@ importers:
         specifier: ^4.0.167
         version: 4.0.167(react@19.3.1)(zod@4.6.7)
       '@ai-sdk/xai':
-        specifier: ^4.0.43
-        version: 4.0.43(zod@4.6.7)
+        specifier: ^5.0.35
+        version: 5.0.35(zod@4.6.7)
       '@clerk/react':
         specifier: ^6.18.5
         version: 6.18.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -391,8 +391,8 @@ packages:
     peerDependencies:
       react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
 
-  '@ai-sdk/xai@4.0.43':
-    resolution: {integrity: sha512-RAdjEwcaVGcmYWjzPoq61Z06Yi81J+22r9Quuu6ByZ1EUNVwsD1yNNF7znSot+7L+i68PBc6T5QtbnYB4rLaVA==}
+  '@ai-sdk/xai@5.0.35':
+    resolution: {integrity: sha512-2Yf9BQae0A+kjHLrUaTG4f4+fqRihAC4MyCXHEpRb3bvR9Kc1ioNWwtEygCqZNTdhLnrqZEdiG2NSGa+mtJgnw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5526,7 +5526,7 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@ai-sdk/xai@4.0.43(zod@4.6.7)':
+  '@ai-sdk/xai@5.0.35(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.34
       '@ai-sdk/provider-utils': 5.0.71(zod@4.6.7)
