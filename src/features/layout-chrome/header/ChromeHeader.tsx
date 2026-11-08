@@ -2,6 +2,12 @@ import { Button } from "@/components/ui/button";
 import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import { NotificationBell } from "@/features/ai-companion/agents";
+import {
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/react";
 import type { Tab } from "@/features/workspace-core/tabs";
 import { WorkspaceTabBar } from "@/features/workspace-core/tabs";
 import {
@@ -182,6 +188,27 @@ export function ChromeHeader({
       )}
 
       {!IS_MAC && settingsButton}
+
+      <Show when="signed-out">
+        <SignInButton mode="modal">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Sign in
+          </Button>
+        </SignInButton>
+        <SignUpButton mode="modal">
+          <Button size="sm" className="h-7 shrink-0 rounded-md px-2 text-xs">
+            Create account
+          </Button>
+        </SignUpButton>
+      </Show>
+
+      <Show when="signed-in">
+        <UserButton />
+      </Show>
 
       {USE_CUSTOM_WINDOW_CONTROLS && (
         <>

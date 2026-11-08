@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/react";
 import "@xterm/xterm/css/xterm.css";
 import "./styles/globals.css";
 
@@ -26,7 +27,9 @@ await invoke("pty_close_all").catch(() => {});
 await initLaunchDir();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <App />,
+  <ClerkProvider afterSignOutUrl="/">
+    <App />
+  </ClerkProvider>,
 );
 
 // Window starts hidden (per tauri.conf.json) so users never see a transparent
