@@ -368,12 +368,28 @@ jobs:
           chmod +x "./$BASENAME"
           "./$BASENAME" --appimage-extract >/dev/null
 
-          # Fail loud if Tauri/linuxdeploy stops bundling these, so a future
-          # layout change cannot silently ship an unfixed AppImage.
+          # Some Tauri/linuxdeploy versions already exclude these libraries.
+          # Skip repacking when none are bundled, but fail on a partial layout
+          # so a future change cannot silently ship a partially fixed image.
+          found=0
+          missing=0
           for lib in libwayland-client.so.0 libwayland-egl.so.1 libwayland-cursor.so.0; do
-            test -e "squashfs-root/usr/lib/$lib" \
-              || { echo "expected bundled lib missing: $lib (layout changed?)"; exit 1; }
+            if test -e "squashfs-root/usr/lib/$lib"; then
+              found=1
+            else
+              missing=1
+            fi
           done
+          if [ "$found" -eq 0 ]; then
+            echo "No bundled Wayland libraries found; AppImage already needs no repack"
+            popd >/dev/null
+            rm -rf "$WORK"
+            exit 0
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "partial bundled Wayland library layout detected"
+            exit 1
+          fi
 
           rm -f squashfs-root/usr/lib/libwayland-client.so.0 \
                 squashfs-root/usr/lib/libwayland-egl.so.1 \
