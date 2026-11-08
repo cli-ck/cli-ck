@@ -39,8 +39,8 @@ importers:
         specifier: ^4.0.167
         version: 4.0.167(react@19.3.1)(zod@4.6.7)
       '@ai-sdk/xai':
-        specifier: ^4.0.43
-        version: 4.0.43(zod@4.6.7)
+        specifier: ^5.0.35
+        version: 5.0.35(zod@4.6.7)
       '@codemirror/autocomplete':
         specifier: ^6.20.4
         version: 6.20.4
@@ -378,6 +378,9 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@5.0.72':
+    resolution: {integrity: sha512-M6QAztI84jWumQSvKcGOL91DxhChsWxn3D3gYtV0/7E1TPQg9BmLdIerOolUC/jghQbMlQrHyzp0hqdIhUZ2Rw==}
+
   '@ai-sdk/provider-utils@5.0.75':
     resolution: {integrity: sha512-k4yAsFliGZwoTpyTpm3ptxwIeaPvRh5vGh/UWoqDiLLXKoyz4zuBGS7p3ygf8to5Bh4fAOHynotLBsWLIYdu2A==}
     engines: {node: '>=22'}
@@ -386,6 +389,10 @@ packages:
 
   '@ai-sdk/provider@4.0.34':
     resolution: {integrity: sha512-Ip7ZQBq/FiGpM1mmOVseTtX9PBjnzo0bLC41WTgBSBBRUBz6LhNFGbYaNUzI6hPm6ll1oNSPOAZc/q/z+3QZEQ==}
+    engines: {node: '>=22'}
+
+  '@ai-sdk/provider@4.0.35':
+    resolution: {integrity: sha512-yBz6fmLS8MSCIzy7NiHEUAq56ZLD4ZA1GR6bpXBxgbwUacP1La7LuwAr/xy9jSzthem4F8Xu2OrhvU/JrE9fYA==}
     engines: {node: '>=22'}
 
   '@ai-sdk/provider@4.0.36':
@@ -398,8 +405,8 @@ packages:
     peerDependencies:
       react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
 
-  '@ai-sdk/xai@4.0.43':
-    resolution: {integrity: sha512-RAdjEwcaVGcmYWjzPoq61Z06Yi81J+22r9Quuu6ByZ1EUNVwsD1yNNF7znSot+7L+i68PBc6T5QtbnYB4rLaVA==}
+  '@ai-sdk/xai@5.0.35':
+    resolution: {integrity: sha512-2Yf9BQae0A+kjHLrUaTG4f4+fqRihAC4MyCXHEpRb3bvR9Kc1ioNWwtEygCqZNTdhLnrqZEdiG2NSGa+mtJgnw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5489,6 +5496,10 @@ snapshots:
       undici: 7.30.1
       zod: 4.6.7
 
+  '@ai-sdk/provider-utils@5.0.72(zod@4.6.7)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.35
+
   '@ai-sdk/provider-utils@5.0.75(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.36
@@ -5499,6 +5510,10 @@ snapshots:
       zod: 4.6.7
 
   '@ai-sdk/provider@4.0.34':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@4.0.35':
     dependencies:
       json-schema: 0.4.0
 
@@ -5518,10 +5533,10 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@ai-sdk/xai@4.0.43(zod@4.6.7)':
+  '@ai-sdk/xai@5.0.35(zod@4.6.7)':
     dependencies:
-      '@ai-sdk/provider': 4.0.34
-      '@ai-sdk/provider-utils': 5.0.71(zod@4.6.7)
+      '@ai-sdk/provider': 4.0.35
+      '@ai-sdk/provider-utils': 5.0.72(zod@4.6.7)
       zod: 4.6.7
 
   '@astrojs/compiler@4.0.0': {}
